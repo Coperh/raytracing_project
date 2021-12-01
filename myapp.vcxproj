@@ -131,6 +131,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cl\tools.cl" />
+    <ClInclude Include="Material.h" />
     <ClInclude Include="Plane.h" />
     <ClInclude Include="myapp.h" />
     <ClInclude Include="Sphere.h" />

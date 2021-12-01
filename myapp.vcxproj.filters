@@ -19,6 +19,7 @@
     </ClInclude>
     <ClInclude Include="Plane.h" />
     <ClInclude Include="Sphere.h" />
+    <ClInclude Include="Material.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="template\LICENSE">

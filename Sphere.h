@@ -1,5 +1,7 @@
 #pragma once
 #include "myapp.h"
+#include "Material.h"
+
 
 class Sphere{
 
@@ -7,36 +9,38 @@ class Sphere{
 public:
 
 
-	Sphere() {}
-
-
-	Sphere(float3 position, float radius) {
-		
+	Sphere(float3 position, float radius, Material material) {	
 		pos = position;
-
 		r2 = radius * radius;
-	
+		mat = material;
 	}
 
-
-
 	float3 pos;
-
 	float r2;
+	Material mat;
 
-
-	void IntersectSphere(Ray *ray)
+	bool Intersect(Ray *ray)
 	{
 		float3 C = pos - ray->O;
 		float t = dot(C, ray->D);
 		float3 Q = C - t * ray->D;
 		float p2 = dot(Q, Q);
-		if (p2 > r2) return; // r2 = r * r
+		if (p2 > r2) return false; // r2 = r * r
 		t -= sqrt(r2 - p2);
 
+		
 		//printf("%f\n", t);
-		//if ((t < ray->t) && (t > 0)) ray->t = t; // Need to get min 
-		if(t > 0) ray->t = t;
+	
+		if (t > 0) 
+			if (ray->t  < 0 || ray->t > t) {
+			 ray->t = t;
+			return true;
+			}
+		
+
+		//printf("%f\n", ray->t);
+
+		return false;
 	}
 
 };
