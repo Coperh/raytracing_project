@@ -40,20 +40,19 @@ float DirectIllumination(Primitive * objects[], int n, Light light, float3 inter
 	Ray ray = { interseciton, D, distance };
 
 
-
+	//printf("distance %f\n", distance);
 
 	//printf("1: %f %f %f\n", ray.D.x, ray.D.y, ray.D.z);
 
-
+	
 	if (AnyIntersection(objects, n, ray)) return 0;
 
 	//printf("I: %f %f %f, D: %f\n", interseciton.x, interseciton.y, interseciton.z, distance);
-
-
+	
 	if (distance <= 10) return light.intensity;
 
-
-	return light.intensity * (10 / pow(distance,2));
+	
+	return light.intensity *(10 / pow(distance, 2));
 
 }
 
@@ -102,7 +101,6 @@ float3 Trace(Light light, Primitive * objects[], int n, Ray ray) {
 	float3 I;
 	Material mat;
 	float3 colour;
-
 
 	
 

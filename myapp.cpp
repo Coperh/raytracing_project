@@ -5,8 +5,7 @@
 #include "Material.h"
 #include "Intersection.h"
 #include "Light.h"
-
-
+#include <time.h>
 
 
 
@@ -22,15 +21,19 @@ static float d = 1;
 
 
 
-Light lightsource(float3(75, -75, 0), 1);
+
+Light lightsource(float3(-75, -75, 0), 1);
 
 
 
 Primitive *  primitives[] = {
 	
-	new Sphere(float3(50,-50, 100), 10, Material(Material::Type::diffuse, float3(255,0,0))),
-	new Sphere(float3(0,0, 200), 100, Material(Material::Type::diffuse, float3(255,255,0)))
+	new Sphere(float3(-50,-50, 100), 10, Material(Material::Type::diffuse, float3(255,0,0)))
+	,new Sphere(float3(0,0, 200), 100, Material(Material::Type::diffuse, float3(255,255,0))),
+	new Plane(float3(0, 400, 400), float3(0, 0, 1), Material(Material::Type::diffuse, float3(200, 200, 200)))
 };
+
+
 
 
 //Sphere(float3(50, 50, 100), 10, Material(Material::Type::diffuse, float3(255, 0, 0))),
@@ -39,8 +42,6 @@ Primitive *  primitives[] = {
 //Sphere(float3(-50, 50, 100), 10, Material(Material::Type::diffuse, float3(0, 0, 255))),
 
 
-Plane plane(float3(9, 0, 100), float3(0, -1, 1), 10);
-
 
 
 int num_prim;
@@ -48,7 +49,7 @@ int num_prim;
 
 
 
-const int aa_res = 2;
+const int aa_res = 1;
 
 const int num_subpix = aa_res * aa_res;
 
@@ -56,9 +57,13 @@ const int AA_Height = SCRHEIGHT * aa_res;
 const int AA_Width = SCRWIDTH * aa_res;
 
 
+
+
 Ray AntiAliasRays[AA_Height][AA_Width];
 
 
+
+int frame_count = 0;
 
 
 
@@ -96,8 +101,23 @@ void MyApp::Init()
 
 
 	primitives[0]->test();
-	
+	//primitives[2]->test();
 	//primitives[0]->Intersect(&AntiAliasRays[0][0]);
+
+
+	Ray test_r = { float3(0,0,0), float3(0,0,1), 10 };
+
+	Plane test_plane(float3(0, 0, 100), float3(0, 0, 1), Material(Material::Type::diffuse, float3(200, 200, 200)));
+
+	printf("%f\n", test_plane.d);
+
+
+	if (test_plane.Intersect(&test_r)) 
+	{
+		printf("Hit with %f\n", test_r.D);
+	
+	}
+	else printf("Missed\n");
 
 }
 
@@ -108,6 +128,11 @@ void MyApp::Init()
 // -----------------------------------------------------------
 void MyApp::Tick( float deltaTime )
 {
+
+
+	time_t start, end;
+	time(&start);
+
 	// clear the screen to black
 	screen->Clear( 0 );
 
@@ -138,11 +163,21 @@ void MyApp::Tick( float deltaTime )
 		const uint ig = min((uint)(g * 255), 255u);
 		const uint ib = min((uint)(b * 255), 255u);
 		screen->Plot(x, y, (ir << 16) + (ig << 8) + ib);
+
+
+		
 		
 	}
 
 
+	time(&end);
+	double dif = difftime(end, start);
 
+	printf("Frame %d rendered in %.2lf seconds\n", frame_count, dif);
+
+
+
+	frame_count++;
 
 }
 
