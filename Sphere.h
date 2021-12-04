@@ -29,7 +29,7 @@ public:
 		t -= sqrt(r2 - p2);
 
 		
-		//printf("%f\n", t);
+		
 	
 		if (t > 0) 
 			if (ray->t  < 0 || ray->t > t) {
@@ -42,5 +42,7 @@ public:
 
 		return false;
 	}
+
+
 
 };

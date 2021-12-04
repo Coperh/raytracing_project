@@ -19,25 +19,35 @@ static float d = 1;
 
 
 
-
+Light lightsource(float3(75, -75, 0), 1);
 
 
 
 Sphere  Spheres[] = {
-	Sphere(float3(50,50, 100), 10, Material(Material::Type::diffuse, float3(255,0,0) ) ),
-	Sphere(float3(50,-50, 100), 10, Material(Material::Type::diffuse, float3(0,255,0)) ),
-	Sphere(float3(-50,-50, 100), 10, Material(Material::Type::diffuse, float3(0,255,0)) ) ,
-	Sphere(float3(-50,50, 100), 10, Material(Material::Type::diffuse, float3(255,255,0)))};
+	
+	Sphere(float3(50,-50, 100), 10, Material(Material::Type::diffuse, float3(255,0,0))),
+	Sphere(float3(0,0, 200), 100, Material(Material::Type::diffuse, float3(255,255,0)))
+};
 
 
+//Sphere(float3(50, 50, 100), 10, Material(Material::Type::diffuse, float3(255, 0, 0))),
+//Sphere(float3(50, -50, 100), 10, Material(Material::Type::diffuse, float3(0, 255, 0))),
+//Sphere(float3(-50, -50, 100), 10, Material(Material::Type::diffuse, float3(0, 255, 0))),
+//Sphere(float3(-50, 50, 100), 10, Material(Material::Type::diffuse, float3(0, 0, 255))),
 
-Plane plane(float3(0, 0, 100), float3(0, -1, 1), 10);
+
+Plane plane(float3(9, 0, 100), float3(0, -1, 1), 10);
+
+
+int num_prim;
+
+
 
 Ray Rays[SCRHEIGHT][SCRWIDTH];
 
 
 
-Light lightsource(float3(0, 0, 50), 0.8);
+
 
 
 
@@ -69,6 +79,8 @@ void MyApp::Init()
 	}
 
 
+	num_prim = sizeof(Spheres) / sizeof(Spheres[0]);
+
 
 }
 
@@ -84,7 +96,7 @@ void MyApp::Tick( float deltaTime )
 
 	for (int y=0; y< SCRHEIGHT; y++) for (int x = 0; x< SCRWIDTH; x++){
 
-		frame[y][x] = Trace(lightsource, Spheres, 4, Rays[y][x]);
+		frame[y][x] = Trace(lightsource, Spheres, num_prim, Rays[y][x]);
 
 
 		//printf("Col %f %f %f\n", frame[y][x].x, frame[y][x].y, frame[y][x].z);

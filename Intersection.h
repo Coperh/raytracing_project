@@ -5,14 +5,17 @@
 using std::pow, std::sqrt;
 
 
-bool AnyIntersection(Sphere objects[], int n, Ray r) {
+bool AnyIntersection(Sphere objects[], int n, Ray ray) {
 
+	//printf("2: %f %f %f\n", ray.D.x, ray.D.y, ray.D.z);
 
 	for (int i = 0; i < n; i++)
 	{
-
+		//printf("Sphape: %d, T:%f\n",i, r.t);
+		
 		// only returns true if there is an intersection nearer than the lightsource
-		if (objects[i].Intersect(&r)) {
+		if (objects[i].Intersect(&ray)) {
+			
 			return true;
 		}
 	}
@@ -27,10 +30,18 @@ float DirectIllumination(Sphere objects[], int n, Light light, float3 intersecit
 
 	float3 D = normalize(light.pos - interseciton);
 
+	
+
+
 	float distance = sqrt(pow(interseciton.x - light.pos.x, 2) + pow(interseciton.y - light.pos.y, 2) + pow(interseciton.z - light.pos.z, 2));
 
 
-	Ray ray = { D, light.pos, distance };
+	Ray ray = { interseciton, D, distance };
+
+
+
+
+	//printf("1: %f %f %f\n", ray.D.x, ray.D.y, ray.D.z);
 
 
 	if (AnyIntersection(objects, n, ray)) return 0;
