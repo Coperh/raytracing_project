@@ -1,11 +1,12 @@
 #pragma once
 #include "cmath"
 #include "Light.h"
+#include "Primitive.h"
 
 using std::pow, std::sqrt;
 
 
-bool AnyIntersection(Sphere objects[], int n, Ray ray) {
+bool AnyIntersection(Primitive * objects[], int n, Ray ray) {
 
 	//printf("2: %f %f %f\n", ray.D.x, ray.D.y, ray.D.z);
 
@@ -14,7 +15,7 @@ bool AnyIntersection(Sphere objects[], int n, Ray ray) {
 		//printf("Sphape: %d, T:%f\n",i, r.t);
 		
 		// only returns true if there is an intersection nearer than the lightsource
-		if (objects[i].Intersect(&ray)) {
+		if (objects[i]->Intersect(&ray)) {
 			
 			return true;
 		}
@@ -25,7 +26,7 @@ bool AnyIntersection(Sphere objects[], int n, Ray ray) {
 
 
 
-float DirectIllumination(Sphere objects[], int n, Light light, float3 interseciton, float3 normal)
+float DirectIllumination(Primitive * objects[], int n, Light light, float3 interseciton, float3 normal)
 {
 
 	float3 D = normalize(light.pos - interseciton);
@@ -52,24 +53,23 @@ float DirectIllumination(Sphere objects[], int n, Light light, float3 intersecit
 	if (distance <= 10) return light.intensity;
 
 
-	return light.intensity * 10 / pow(distance,2);
+	return light.intensity * (10 / pow(distance,2));
 
 }
 
 
-void NearestIntersection(Sphere objects[], int n, Ray* r, float3* intersection, float3* normal, Material* material) {
+void NearestIntersection(Primitive * objects[], int n, Ray* r, float3* intersection, float3* normal, Material* material) {
 
 	r->t = -1;
-
 
 	int nearest = -1;
 
 	for (int i = 0; i < n; i++)
 	{
-		if (objects[i].Intersect(r)) {
+		if (objects[i]->Intersect(r)) {
 			nearest = i;
-			material->type = objects[i].mat.type;
-			material->colour = objects[i].mat.colour;
+			material->type = objects[i]->mat.type;
+			material->colour = objects[i]->mat.colour;
 		}
 	}
 
@@ -85,7 +85,7 @@ void NearestIntersection(Sphere objects[], int n, Ray* r, float3* intersection, 
 		intersection->y = I.y;
 		intersection->z = I.z;
 
-		float3 N = normalize(I - objects[nearest].pos);
+		float3 N = normalize(I - objects[nearest]->pos);
 
 		normal->x = N.x;
 		normal->y = N.y;
@@ -96,7 +96,7 @@ void NearestIntersection(Sphere objects[], int n, Ray* r, float3* intersection, 
 }
 
 
-float3 Trace(Light light, Sphere objects[], int n, Ray ray) {
+float3 Trace(Light light, Primitive * objects[], int n, Ray ray) {
 
 	float3 N;
 	float3 I;

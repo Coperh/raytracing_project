@@ -136,6 +136,7 @@
     <ClInclude Include="Material.h" />
     <ClInclude Include="Plane.h" />
     <ClInclude Include="myapp.h" />
+    <ClInclude Include="Primitive.h" />
     <ClInclude Include="Sphere.h" />
     <ClInclude Include="template\common.h" />
     <ClInclude Include="template\precomp.h" />

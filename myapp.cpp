@@ -26,10 +26,10 @@ Light lightsource(float3(75, -75, 0), 1);
 
 
 
-Sphere  Spheres[] = {
+Primitive *  primitives[] = {
 	
-	Sphere(float3(50,-50, 100), 10, Material(Material::Type::diffuse, float3(255,0,0))),
-	Sphere(float3(0,0, 200), 100, Material(Material::Type::diffuse, float3(255,255,0)))
+	new Sphere(float3(50,-50, 100), 10, Material(Material::Type::diffuse, float3(255,0,0))),
+	new Sphere(float3(0,0, 200), 100, Material(Material::Type::diffuse, float3(255,255,0)))
 };
 
 
@@ -42,7 +42,9 @@ Sphere  Spheres[] = {
 Plane plane(float3(9, 0, 100), float3(0, -1, 1), 10);
 
 
+
 int num_prim;
+
 
 
 
@@ -88,8 +90,14 @@ void MyApp::Init()
 	}
 
 
-	num_prim = sizeof(Spheres) / sizeof(Spheres[0]);
+	num_prim = sizeof(primitives) / sizeof(primitives[0]);
 
+	printf("Number of primitives %d\n", num_prim);
+
+
+	primitives[0]->test();
+	
+	//primitives[0]->Intersect(&AntiAliasRays[0][0]);
 
 }
 
@@ -114,7 +122,7 @@ void MyApp::Tick( float deltaTime )
 			int local_y = y * aa_res + sub_y;
 			int local_x = x * aa_res + sub_x;
 
-			average_colour += Trace(lightsource, Spheres, num_prim, AntiAliasRays[local_y][local_x]);
+			average_colour += Trace(lightsource, primitives, num_prim, AntiAliasRays[local_y][local_x]);
 		}
 
 		frame[y][x] = average_colour / num_subpix;

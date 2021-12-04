@@ -1,9 +1,8 @@
 #pragma once
 #include "myapp.h"
-#include "Material.h"
+#include "Primitive.h"
 
-
-class Sphere{
+class Sphere: public Primitive{
 
 
 public:
@@ -15,9 +14,9 @@ public:
 		mat = material;
 	}
 
-	float3 pos;
+	
 	float r2;
-	Material mat;
+	
 
 	bool Intersect(Ray *ray)
 	{
@@ -27,9 +26,6 @@ public:
 		float p2 = dot(Q, Q);
 		if (p2 > r2) return false; // r2 = r * r
 		t -= sqrt(r2 - p2);
-
-		
-		
 	
 		if (t > 0) 
 			if (ray->t  < 0 || ray->t > t) {
@@ -44,5 +40,6 @@ public:
 	}
 
 
+	void test() { printf("I am a sphere\n"); }
 
 };
