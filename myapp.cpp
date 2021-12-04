@@ -7,6 +7,9 @@
 #include "Light.h"
 
 
+
+
+
 float3 frame[SCRHEIGHT][SCRWIDTH];
 
 
@@ -43,10 +46,15 @@ int num_prim;
 
 
 
-Ray Rays[SCRHEIGHT][SCRWIDTH];
+const int aa_res = 2;
+
+const int num_subpix = aa_res * aa_res;
+
+const int AA_Height = SCRHEIGHT * aa_res;
+const int AA_Width = SCRWIDTH * aa_res;
 
 
-
+Ray AntiAliasRays[AA_Height][AA_Width];
 
 
 
@@ -66,16 +74,17 @@ void MyApp::Init()
 
 
 
-	for (int y = 0; y < SCRHEIGHT; y++) for (int x = 0; x < SCRWIDTH; x++) {
+	for (int y = 0; y < AA_Height; y++) for (int x = 0; x < AA_Width; x++) {
 
 
-		float u = float(x) / SCRWIDTH;
-		float v = float(y) / SCRHEIGHT;
+		float u = float(x) / AA_Width;
+		float v = float(y) / AA_Height;
 		float3 Puv = P0 + u * (P1 - P0) + v * (P2 - P0);
 		float3 D = Puv - E;
-		Rays[y][x].D = normalize(D);
-		Rays[y][x].O = Puv;
-		Rays[y][x].t = -1;
+
+		AntiAliasRays[y][x].D = normalize(D);
+		AntiAliasRays[y][x].O = Puv;
+		AntiAliasRays[y][x].t = -1;
 	}
 
 
@@ -96,7 +105,20 @@ void MyApp::Tick( float deltaTime )
 
 	for (int y=0; y< SCRHEIGHT; y++) for (int x = 0; x< SCRWIDTH; x++){
 
-		frame[y][x] = Trace(lightsource, Spheres, num_prim, Rays[y][x]);
+		// for every sub pixel
+
+		float3 average_colour(0, 0, 0);
+
+		for (int sub_y = 0; sub_y < aa_res; sub_y++) for(int sub_x = 0; sub_x < aa_res; sub_x++) {
+
+			int local_y = y * aa_res + sub_y;
+			int local_x = x * aa_res + sub_x;
+
+			average_colour += Trace(lightsource, Spheres, num_prim, AntiAliasRays[local_y][local_x]);
+		}
+
+		frame[y][x] = average_colour / num_subpix;
+
 
 
 		//printf("Col %f %f %f\n", frame[y][x].x, frame[y][x].y, frame[y][x].z);
