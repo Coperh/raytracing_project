@@ -40,6 +40,17 @@ public:
 	}
 
 
+
+	float3 GetNormal(float3 point, float3 D) {
+	
+	
+	
+		return normalize(point - pos);
+	};
+
+
+
+
 	void test() { printf("I am a sphere at point (%.2f, %.2f, %.2f)\n", pos.x, pos.y, pos.z); }
 
 };

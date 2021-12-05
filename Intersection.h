@@ -6,6 +6,21 @@
 using std::pow, std::sqrt;
 
 
+
+float3 ReflectRay(float3 D, float3 N) {
+
+
+
+	float3 R = D - 2 * (dot(D, N) * N);
+
+	return R;
+
+}
+
+
+
+
+
 bool AnyIntersection(Primitive * objects[], int n, Ray ray) {
 
 	//printf("2: %f %f %f\n", ray.D.x, ray.D.y, ray.D.z);
@@ -49,10 +64,10 @@ float DirectIllumination(Primitive * objects[], int n, Light light, float3 inter
 
 	//printf("I: %f %f %f, D: %f\n", interseciton.x, interseciton.y, interseciton.z, distance);
 	
-	if (distance <= 10) return light.intensity;
+	//if (distance <= 10) return light.intensity;
 
 	
-	return light.intensity *(10 / pow(distance, 2));
+	return light.intensity * (1 / distance);
 
 }
 
@@ -69,6 +84,7 @@ void NearestIntersection(Primitive * objects[], int n, Ray* r, float3* intersect
 			nearest = i;
 			material->type = objects[i]->mat.type;
 			material->colour = objects[i]->mat.colour;
+			material->intensity = objects[i]->mat.intensity;
 		}
 	}
 
@@ -84,7 +100,7 @@ void NearestIntersection(Primitive * objects[], int n, Ray* r, float3* intersect
 		intersection->y = I.y;
 		intersection->z = I.z;
 
-		float3 N = normalize(I - objects[nearest]->pos);
+		float3 N = objects[nearest]->GetNormal(I, r->D);
 
 		normal->x = N.x;
 		normal->y = N.y;
@@ -119,7 +135,37 @@ float3 Trace(Light light, Primitive * objects[], int n, Ray ray) {
 		return colour;
 	}
 
-	else if (mat.type == Material::Type::mirror);
+	else if (mat.type == Material::Type::mirror) {
+
+		float reflected = mat.intensity;
+
+		float non_reflect = 1 - reflected;
+
+		if (reflected == 0) {
+			
+			
+			return mat.colour * DirectIllumination(objects, n, light, I, N);
+		}
+		else {
+
+			float3 R = ReflectRay(ray.D, N);
+
+			Ray reflect = {I,R, -1};
+
+			if (reflected == 1) return Trace(light, objects,n , reflect);
+			else {	
+
+				colour = reflected * Trace(light, objects, n, reflect) + non_reflect * (mat.colour * DirectIllumination(objects, n, light, I, N));
+
+				return colour;
+			
+			};
+		
+		}
+		
+	
+	
+	}
 	else if (mat.type == Material::Type::glass);
 
 	return float3(0, 0, 0);

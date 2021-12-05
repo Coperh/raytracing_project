@@ -11,4 +11,7 @@ public:
 
 
 	virtual void test() { printf("Generic primitive\n"); }
+
+
+	virtual float3 GetNormal(float3 point, float3 D) = 0;
 };

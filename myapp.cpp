@@ -22,15 +22,15 @@ static float d = 1;
 
 
 
-Light lightsource(float3(-75, -75, 0), 1);
+Light lightsource(float3(-75, -75, 600), 1);
 
 
 
-Primitive *  primitives[] = {
-	
-	new Sphere(float3(-50,-50, 100), 10, Material(Material::Type::diffuse, float3(255,0,0)))
-	,new Sphere(float3(0,0, 200), 100, Material(Material::Type::diffuse, float3(255,255,0))),
-	new Plane(float3(0, 400, 400), float3(0, 0, 1), Material(Material::Type::diffuse, float3(200, 200, 200)))
+Primitive* primitives[] = {
+
+	new Sphere(float3(-50,-50, 100), 10, Material(Material::Type::diffuse, float3(255,0,0),1))
+	,new Sphere(float3(0,0, 200), 10, Material(Material::Type::diffuse, float3(255,255,0),1)),
+	new Plane(float3(0, 400, 400), float3(0, 1, 1), Material(Material::Type::mirror, float3(200, 200, 200),1))
 };
 
 
@@ -107,7 +107,7 @@ void MyApp::Init()
 
 	Ray test_r = { float3(0,0,0), float3(0,0,1), 10 };
 
-	Plane test_plane(float3(0, 0, 100), float3(0, 0, 1), Material(Material::Type::diffuse, float3(200, 200, 200)));
+	Plane test_plane(float3(0, 0, 100), float3(0, 0, 1), Material(Material::Type::diffuse, float3(200, 200, 200), 1));
 
 	printf("%f\n", test_plane.d);
 

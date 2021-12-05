@@ -18,10 +18,12 @@ public:
 
 	Material() {};
 
-	Material(Type type, float3 colour) {
+	Material(Type type, float3 colour, float intensity) {
 	
 		this->type = type;
 		this->colour = colour;
+
+		this->intensity = intensity;
 	}
 
 
@@ -30,5 +32,6 @@ public:
 
 	float3 colour;
 
+	float intensity; // how intense reflection
 
 };

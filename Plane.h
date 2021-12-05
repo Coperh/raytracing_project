@@ -49,5 +49,10 @@ public:
 		printf("I am a plane at point (%.2f, %.2f, %.2f)\n", pos.x, pos.y, pos.z);
 	}
 
+	float3 GetNormal(float3 point, float3 D) {
 
+		if (dot(D, N) > 0)
+			return -N;
+		return N;
+	};
 };
