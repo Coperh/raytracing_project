@@ -3,21 +3,13 @@
 #include "Light.h"
 #include "Primitive.h"
 
-using std::pow, std::sqrt;
+using std::pow;
 
 
 
 float3 ReflectRay(float3 D, float3 N) {
-
-
-
-	float3 R = D - 2 * (dot(D, N) * N);
-
-	return R;
-
+	return D - 2 * (dot(D, N) * N);
 }
-
-
 
 
 
@@ -41,34 +33,55 @@ bool AnyIntersection(Primitive * objects[], int n, Ray ray) {
 
 
 
-float DirectIllumination(Primitive * objects[], int n, Light light, float3 interseciton, float3 normal)
+float DirectIllumination(Primitive * objects[], int n, Light lights[], int m, float3 interseciton, float3 normal)
 {
 
-	float3 D = normalize(light.pos - interseciton);
+	float intensity = 0;
+
+
+	for (int i = 0; i < m; i++) {
+
+
+
+		float3 raw_vector = lights[i].pos - interseciton;
+
+		float3 D = normalize(raw_vector);
 
 	
+		float distance = length(raw_vector);
 
 
-	float distance = sqrt(pow(interseciton.x - light.pos.x, 2) + pow(interseciton.y - light.pos.y, 2) + pow(interseciton.z - light.pos.z, 2));
+		Ray ray = { interseciton, D, distance };
 
 
-	Ray ray = { interseciton, D, distance };
+		//printf("distance %f\n", distance);
 
-
-	//printf("distance %f\n", distance);
-
-	//printf("1: %f %f %f\n", ray.D.x, ray.D.y, ray.D.z);
+		//printf("1: %f %f %f\n", ray.D.x, ray.D.y, ray.D.z);
 
 	
-	if (AnyIntersection(objects, n, ray)) return 0;
+		if (!AnyIntersection(objects, n, ray)){
 
-	//printf("I: %f %f %f, D: %f\n", interseciton.x, interseciton.y, interseciton.z, distance);
+
+
+			float cosine = max(0.0f, dot(D, normal));
+
+			float dis_square = (distance * distance);
+
+			//if (distance <= 10) intensity += light.intensity;
+
+
+			intensity += (lights[i].intensity * cosine)/ dis_square ;
+
+			//printf("%f %f\n ", cosine, dis_square);
+			//printf("I: %f %f %f, D: %f\n", interseciton.x, interseciton.y, interseciton.z, distance);
 	
-	//if (distance <= 10) return light.intensity;
-
+		
+		}
 	
-	return light.intensity * (1 / distance);
+		
+	}
 
+	return intensity;
 }
 
 
@@ -111,7 +124,7 @@ void NearestIntersection(Primitive * objects[], int n, Ray* r, float3* intersect
 }
 
 
-float3 Trace(Light light, Primitive * objects[], int n, Ray ray) {
+float3 Trace(Primitive* objects[], int n, Light  lights[], int m,  Ray ray) {
 
 	float3 N;
 	float3 I;
@@ -128,45 +141,86 @@ float3 Trace(Light light, Primitive * objects[], int n, Ray ray) {
 	//printf("I: %f %f %f\n", I.x, I.y, I.z);
 
 	if (mat.type == Material::Type::diffuse) {
-		colour = mat.colour * DirectIllumination(objects, n, light, I, N);
+		colour = mat.colour * DirectIllumination(objects, n, lights, m,  I, N);
 	
 		//printf("Col %f %f %f\n", colour.x, colour.y, colour.z);
 
 		return colour;
 	}
 
-	else if (mat.type == Material::Type::mirror) {
+	else {
+		
+		float s = mat.intensity;
 
-		float reflected = mat.intensity;
+		float d = 1 - s;
 
-		float non_reflect = 1 - reflected;
+		
+		if (mat.type == Material::Type::reflect) {
 
-		if (reflected == 0) {
-			
-			
-			return mat.colour * DirectIllumination(objects, n, light, I, N);
-		}
-		else {
+			float reflected = mat.intensity;
+
+
+
+			if (s == 0) 
+
+			return mat.colour * DirectIllumination(objects, n, lights, m, I, N);
+
+
 
 			float3 R = ReflectRay(ray.D, N);
 
-			Ray reflect = {I,R, -1};
+			Ray reflect = { I,R, -1 };
 
-			if (reflected == 1) return Trace(light, objects,n , reflect);
-			else {	
+			if (s == 1) return Trace(objects, n, lights, m, reflect);
+			else {
 
-				colour = reflected * Trace(light, objects, n, reflect) + non_reflect * (mat.colour * DirectIllumination(objects, n, light, I, N));
-
+				colour = (s * Trace(objects, n, lights, m, reflect)) +
+					(d * mat.colour * DirectIllumination(objects, n, lights, m, I, N));
 				return colour;
+			}
 			
-			};
-		
 		}
+		else if (mat.type == Material::Type::refract) 
+		{
+
+			if (s == 0) 
+				return mat.colour * DirectIllumination(objects, n, lights, m, I, N);
 		
+			if (s == 1);
+
+
+			// reflection
+			float3 R = ReflectRay(ray.D, N);
+
+			Ray reflect = { I,R, -1 };
+
+			colour = (d * Trace(objects, n, lights, m, reflect));
+
+
+			// refraction
+
+			float cosine = dot(N,  -ray.D);
+
+			float k = 1 - pow(mat.index, 2) * (1 - pow(cosine, 2));
+
+			if (k >= 0)
+			{
+			
+			
+				float3 T = mat.index * ray.D + N * (mat.index * cosine - sqrtf(k));
+
+				Ray refracted = { I, T, -1 };
+
+				colour += s * Trace(objects, n, lights, m, refracted);
+			}
+			
+			return colour;
+		};
 	
 	
+	
+
 	}
-	else if (mat.type == Material::Type::glass);
 
 	return float3(0, 0, 0);
 }

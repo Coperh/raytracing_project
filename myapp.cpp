@@ -17,23 +17,30 @@ TheApp* CreateApp() { return new MyApp(); }
 
 static float3 E(0, 0, 0), V(0, 0, 1);
 
-static float d = 1;
+static float d = 0.5;
 
 
 
 
-Light lightsource(float3(-75, -75, 600), 1);
+Light lightsources[] = { 
+	Light(float3(-100, -200, 0), 200),
+	Light(float3(100, -200, 0), 200) };
 
-
+int num_light;
 
 Primitive* primitives[] = {
 
-	new Sphere(float3(-50,-50, 100), 10, Material(Material::Type::diffuse, float3(255,0,0),1))
-	,new Sphere(float3(0,0, 200), 10, Material(Material::Type::diffuse, float3(255,255,0),1)),
-	new Plane(float3(0, 400, 400), float3(0, 1, 1), Material(Material::Type::mirror, float3(200, 200, 200),1))
+	//new Sphere(float3(-50,-50, 100), 10, Material(Material::Type::diffuse, float3(255,0,0),1)),
+	new Plane(float3(0, 0, 200), float3(0, 0, 1), Material(Material::Type::diffuse, float3(255, 0, 255),1)),// backwall
+	new Plane(float3(200, 0, 0), float3(1, 0, 0), Material(Material::Type::diffuse, float3(200, 200, 200),1)), // right wall
+	new Plane(float3(-200, 0, 0), float3(-1, 0, 0), Material(Material::Type::diffuse, float3(255, 0, 0),1)),// left wall
+	new Plane(float3(0, 200, 0), float3(0, 1, 0), Material(Material::Type::reflect, float3(255, 255,0),0)), //floor
+
+	new Sphere(float3(0, 0, 20), 10, Material(Material::Type::refract, float3(0, 255,0),0.8))
+	//new Sphere(float3(0, 5, 10), 2, Material(Material::Type::diffuse, float3(0,0 ,255), 1))
 };
 
-
+int num_prim;
 
 
 //Sphere(float3(50, 50, 100), 10, Material(Material::Type::diffuse, float3(255, 0, 0))),
@@ -44,12 +51,11 @@ Primitive* primitives[] = {
 
 
 
-int num_prim;
 
 
 
 
-const int aa_res = 1;
+const int aa_res = 2;
 
 const int num_subpix = aa_res * aa_res;
 
@@ -67,8 +73,44 @@ int frame_count = 0;
 
 
 
+void MyApp::KeyUp(int key) {
+	printf("Key %d up\n", key);
+
+
+	// left (left arrow + A)
+	if (key == 263 || key == 65)
+	turning_left = false;
+	
+	// right (right arrow + D)
+	if (key == 262 || key == 68)
+		turning_right = false;
+};
+void MyApp::KeyDown(int key) {
+	printf("Key%d down\n", key);
+
+	// left (left arrow + A)
+	if (key == 263 || key == 65)
+	turning_left = true;
+
+	// right (right arrow + D)
+	if (key == 262 || key == 68)
+	turning_right = true;
+
+
+} 
+
+
+
+
 void MyApp::Init()
 {
+
+	turning_left = false;
+	turning_right = false;
+
+
+	printf("Anti-aliassing: %d, Subpixels: %d\n", aa_res, num_subpix);
+
 	// anything that happens only once at application start goes here
 
 	float3 center = E + d * V;
@@ -97,6 +139,9 @@ void MyApp::Init()
 
 	num_prim = sizeof(primitives) / sizeof(primitives[0]);
 
+	num_light = sizeof(lightsources) / sizeof(lightsources[0]);
+
+
 	printf("Number of primitives %d\n", num_prim);
 
 
@@ -114,8 +159,7 @@ void MyApp::Init()
 
 	if (test_plane.Intersect(&test_r)) 
 	{
-		printf("Hit with %f\n", test_r.D);
-	
+		printf("Hit with %f\n", test_r.t);
 	}
 	else printf("Missed\n");
 
@@ -136,24 +180,40 @@ void MyApp::Tick( float deltaTime )
 	// clear the screen to black
 	screen->Clear( 0 );
 
+
+	if (turning_left) {
+		if (!turning_right) {
+			// do something
+			printf("Turning Left\n");
+		}
+	}
+	else if (turning_right) 
+	{
+		// do something
+		printf("Turning Right\n");
+	}
+	
+
+
 	for (int y=0; y< SCRHEIGHT; y++) for (int x = 0; x< SCRWIDTH; x++){
 
 		// for every sub pixel
 
 		float3 average_colour(0, 0, 0);
 
+		
 		for (int sub_y = 0; sub_y < aa_res; sub_y++) for(int sub_x = 0; sub_x < aa_res; sub_x++) {
 
 			int local_y = y * aa_res + sub_y;
 			int local_x = x * aa_res + sub_x;
 
-			average_colour += Trace(lightsource, primitives, num_prim, AntiAliasRays[local_y][local_x]);
+			average_colour = average_colour + Trace(primitives, num_prim, lightsources, num_light, AntiAliasRays[local_y][local_x]);
 		}
 
 		frame[y][x] = average_colour / num_subpix;
+		
 
-
-
+		//frame[y][x] = Trace(lightsource, primitives, num_prim, AntiAliasRays[y][x]);
 		//printf("Col %f %f %f\n", frame[y][x].x, frame[y][x].y, frame[y][x].z);
 
 
@@ -171,9 +231,9 @@ void MyApp::Tick( float deltaTime )
 
 
 	time(&end);
-	double dif = difftime(end, start);
+	double dif = difftime(start, end );
 
-	printf("Frame %d rendered in %.2lf seconds\n", frame_count, dif);
+	printf("Frame %d rendered in %f seconds\n", frame_count, dif);
 
 
 

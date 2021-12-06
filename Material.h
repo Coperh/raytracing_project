@@ -11,9 +11,12 @@ public:
 	enum class Type
 	{
 		diffuse,
-		mirror,
-		glass
+		reflect,
+		refract
 	};
+
+
+
 
 
 	Material() {};
@@ -33,5 +36,8 @@ public:
 	float3 colour;
 
 	float intensity; // how intense reflection
+
+	// quartz glass
+	float index = 1.458;
 
 };
