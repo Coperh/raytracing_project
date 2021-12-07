@@ -17,8 +17,6 @@ public:
 
 
 
-
-
 	Material() {};
 
 	Material(Type type, float3 colour, float intensity) {
@@ -27,6 +25,8 @@ public:
 		this->colour = colour;
 
 		this->intensity = intensity;
+
+		this->is_checker == false;
 	}
 
 
@@ -35,7 +35,9 @@ public:
 
 	float3 colour;
 
-	float intensity; // how intense reflection
+	float intensity; // how intense reflection/refaction is
+
+	bool is_checker;
 
 	// quartz glass
 	float index = 1.458;

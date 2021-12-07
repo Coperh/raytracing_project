@@ -5,8 +5,10 @@
 #include "Material.h"
 #include "Intersection.h"
 #include "Light.h"
-#include <time.h>
+#include <chrono>
 
+
+using namespace std::chrono;
 
 
 float3 frame[SCRHEIGHT][SCRWIDTH];
@@ -21,26 +23,48 @@ static float d = 0.5;
 
 
 
+int current_dir = 0;
 
-Light lightsources[] = { 
-	Light(float3(-100, -200, 0), 200),
-	Light(float3(100, -200, 0), 200) };
+
+float3 dir8[] =
+{
+	float3(0,0,1),
+	float3(1,0,1),
+	float3(1,0,0),
+	float3(1,0,-1),
+	float3(0,0,-1),
+	float3(-1,0,-1),
+	float3(-1,0,0),
+	float3(-1,0,1)
+};
+
+
 
 int num_light;
+Light lightsources[] = { 
+	Light(float3(-5, -10, 0), 0.5),
+	Light(float3(5, -10, 0), 0.5) };
 
+
+int num_prim;
 Primitive* primitives[] = {
 
 	//new Sphere(float3(-50,-50, 100), 10, Material(Material::Type::diffuse, float3(255,0,0),1)),
-	new Plane(float3(0, 0, 200), float3(0, 0, 1), Material(Material::Type::diffuse, float3(255, 0, 255),1)),// backwall
-	new Plane(float3(200, 0, 0), float3(1, 0, 0), Material(Material::Type::diffuse, float3(200, 200, 200),1)), // right wall
-	new Plane(float3(-200, 0, 0), float3(-1, 0, 0), Material(Material::Type::diffuse, float3(255, 0, 0),1)),// left wall
-	new Plane(float3(0, 200, 0), float3(0, 1, 0), Material(Material::Type::reflect, float3(255, 255,0),0)), //floor
+	new Plane(float3(0, 0, 10), float3(0, 0, 1), Material(Material::Type::diffuse, float3(255, 0, 255),1)),// backwall
+	new Plane(float3(10, 0, 0), float3(1, 0, 0), Material(Material::Type::diffuse, float3(200, 200, 200),1)), // right wall
+	new Plane(float3(-10, 0, 0), float3(-1, 0, 0), Material(Material::Type::diffuse, float3(255, 0, 0),1)),// left wall
 
-	new Sphere(float3(0, 0, 20), 10, Material(Material::Type::refract, float3(0, 255,0),0.8))
-	//new Sphere(float3(0, 5, 10), 2, Material(Material::Type::diffuse, float3(0,0 ,255), 1))
+	new Plane(float3(0, 0, -10), float3(0, 0, 1), Material(Material::Type::diffuse, float3(0, 255, 255),1)),// backwall
+
+	new Plane(float3(0, 10, 0), float3(0, 1, 0), Material(Material::Type::diffuse, float3(255, 255,0),0.5), true), //floor
+
+	//new Plane(float3(0, 0, 10), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window
+	//new Plane(float3(0, 0, 12), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window takes to long to render
+
+	new Sphere(float3(0, 0, 5), 2, Material(Material::Type::refract, float3(0, 255,0), 0.5))
+	//new Sphere(float3(0, 5, 40), 2, Material(Material::Type::diffuse, float3(0,0 ,255), 1))
 };
 
-int num_prim;
 
 
 //Sphere(float3(50, 50, 100), 10, Material(Material::Type::diffuse, float3(255, 0, 0))),
@@ -49,82 +73,34 @@ int num_prim;
 //Sphere(float3(-50, 50, 100), 10, Material(Material::Type::diffuse, float3(0, 0, 255))),
 
 
-
-
-
-
-
-
 const int aa_res = 2;
-
 const int num_subpix = aa_res * aa_res;
-
 const int AA_Height = SCRHEIGHT * aa_res;
 const int AA_Width = SCRWIDTH * aa_res;
 
 
-
-
 Ray AntiAliasRays[AA_Height][AA_Width];
-
-
 
 int frame_count = 0;
 
 
 
-void MyApp::KeyUp(int key) {
-	printf("Key %d up\n", key);
 
-
-	// left (left arrow + A)
-	if (key == 263 || key == 65)
-	turning_left = false;
-	
-	// right (right arrow + D)
-	if (key == 262 || key == 68)
-		turning_right = false;
-};
-void MyApp::KeyDown(int key) {
-	printf("Key%d down\n", key);
-
-	// left (left arrow + A)
-	if (key == 263 || key == 65)
-	turning_left = true;
-
-	// right (right arrow + D)
-	if (key == 262 || key == 68)
-	turning_right = true;
-
-
-} 
-
-
-
-
-void MyApp::Init()
+void CalculateWindow() 
 {
 
-	turning_left = false;
-	turning_right = false;
-
-
-	printf("Anti-aliassing: %d, Subpixels: %d\n", aa_res, num_subpix);
-
-	// anything that happens only once at application start goes here
+	V = dir8[current_dir];
 
 	float3 center = E + d * V;
 
-	printf("%f %f %f\n", center.x, center.y, center.z);
+	printf("Center: %f %f %f\n", center.x, center.y, center.z);
+	printf("Dir %d: %f %f %f\n", current_dir, V.x, V.y, V.z);
 
 	float3 P0 = center + float3(-1, -1, 0);
 	float3 P1 = center + float3(1, -1, 0);
 	float3 P2 = center + float3(-1, 1, 0);
 
-
-
 	for (int y = 0; y < AA_Height; y++) for (int x = 0; x < AA_Width; x++) {
-
 
 		float u = float(x) / AA_Width;
 		float v = float(y) / AA_Height;
@@ -136,6 +112,76 @@ void MyApp::Init()
 		AntiAliasRays[y][x].t = -1;
 	}
 
+}
+
+
+
+
+
+void MyApp::KeyUp(int key) {
+	printf("Key %d up\n", key);
+
+
+	// left (left arrow + A)
+	if (key == 263 || key == 65) {
+		
+		current_dir --;
+
+		if (current_dir < 0) current_dir = 7;
+
+		CalculateWindow();
+
+
+	}
+
+	// right (right arrow + D)
+	if (key == 262 || key == 68) {
+		/*
+			mat4 right = mat4::RotateZ(45);
+
+			quat temp;
+			temp.fromMatrix(right);
+
+			V = temp.rotateVector(V);
+			*/
+		current_dir ++;
+
+		if (current_dir > 7) current_dir = 0;
+		
+
+
+		CalculateWindow();
+
+
+	}
+
+};
+void MyApp::KeyDown(int key) {
+	printf("Key%d down\n", key);
+
+	// left (left arrow + A)
+	if (key == 263 || key == 65);
+	
+
+
+	// right (right arrow + D)
+	if (key == 262 || key == 68);
+
+
+} 
+
+
+void MyApp::Init()
+{
+
+	printf("Anti-aliassing: %d, Subpixels: %d\n", aa_res, num_subpix);
+
+	printf("Screen res: %d X %d\n", SCRWIDTH, SCRHEIGHT);
+
+	printf("AA Res: %d X %d\n", AA_Width, AA_Height);
+	// anything that happens only once at application start goes here
+
+	CalculateWindow();
 
 	num_prim = sizeof(primitives) / sizeof(primitives[0]);
 
@@ -145,24 +191,17 @@ void MyApp::Init()
 	printf("Number of primitives %d\n", num_prim);
 
 
-	primitives[0]->test();
-	//primitives[2]->test();
-	//primitives[0]->Intersect(&AntiAliasRays[0][0]);
+	//primitives[0]->test();
 
-
-	Ray test_r = { float3(0,0,0), float3(0,0,1), 10 };
-
-	Plane test_plane(float3(0, 0, 100), float3(0, 0, 1), Material(Material::Type::diffuse, float3(200, 200, 200), 1));
-
-	printf("%f\n", test_plane.d);
-
-
-	if (test_plane.Intersect(&test_r)) 
-	{
-		printf("Hit with %f\n", test_r.t);
+	/*
+	for (int i = 0; i < num_prim; i++) {
+	
+		printf("Shape %d, is %d\n", i, primitives[i]->mat.is_checker);
+	
 	}
-	else printf("Missed\n");
+	*/
 
+	printf("Initialization complete\n");
 }
 
 
@@ -174,26 +213,18 @@ void MyApp::Tick( float deltaTime )
 {
 
 
-	time_t start, end;
-	time(&start);
+	milliseconds start = duration_cast<milliseconds>(
+		system_clock::now().time_since_epoch()
+		);
+
+
+	//time_t start, end;
+	//time(&start);
 
 	// clear the screen to black
 	screen->Clear( 0 );
 
-
-	if (turning_left) {
-		if (!turning_right) {
-			// do something
-			printf("Turning Left\n");
-		}
-	}
-	else if (turning_right) 
-	{
-		// do something
-		printf("Turning Right\n");
-	}
 	
-
 
 	for (int y=0; y< SCRHEIGHT; y++) for (int x = 0; x< SCRWIDTH; x++){
 
@@ -201,17 +232,21 @@ void MyApp::Tick( float deltaTime )
 
 		float3 average_colour(0, 0, 0);
 
-		
+		//printf("Start %d %d\n", y, x);
+
 		for (int sub_y = 0; sub_y < aa_res; sub_y++) for(int sub_x = 0; sub_x < aa_res; sub_x++) {
 
 			int local_y = y * aa_res + sub_y;
 			int local_x = x * aa_res + sub_x;
 
-			average_colour = average_colour + Trace(primitives, num_prim, lightsources, num_light, AntiAliasRays[local_y][local_x]);
+			average_colour = average_colour + Trace(primitives, num_prim, lightsources, num_light, AntiAliasRays[local_y][local_x], 0);
 		}
 
+
+
+
 		frame[y][x] = average_colour / num_subpix;
-		
+	
 
 		//frame[y][x] = Trace(lightsource, primitives, num_prim, AntiAliasRays[y][x]);
 		//printf("Col %f %f %f\n", frame[y][x].x, frame[y][x].y, frame[y][x].z);
@@ -225,19 +260,28 @@ void MyApp::Tick( float deltaTime )
 		screen->Plot(x, y, (ir << 16) + (ig << 8) + ib);
 
 
+		//printf("Done %d %d\n", y, x);
 		
 		
+
+
 	}
 
 
-	time(&end);
-	double dif = difftime(start, end );
+	milliseconds end = duration_cast<milliseconds>(
+		system_clock::now().time_since_epoch()
+		);
 
-	printf("Frame %d rendered in %f seconds\n", frame_count, dif);
+	
+	double time = (end - start).count()/1000;
+
+	printf("Frame %d rendered in %f seconds\n", frame_count, time);
 
 
 
 	frame_count++;
 
 }
+
+
 

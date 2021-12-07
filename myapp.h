@@ -19,8 +19,6 @@ public:
 	// data members
 	int2 mousePos;
 
-	bool turning_left;
-	bool turning_right;
 };
 
 

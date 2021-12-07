@@ -5,11 +5,13 @@
 class Plane: public Primitive {
 
 public:
-	Plane(float3 position, float3 normal,  Material material) {
+	Plane(float3 position, float3 normal, Material material, bool is_checker = false) {
 		N = normal;
 		pos = position;
 		d = -(dot(N,pos));
 		mat = material;
+
+		mat.is_checker = is_checker;
 
 	}
 	float3 N;
