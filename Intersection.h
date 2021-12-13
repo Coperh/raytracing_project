@@ -8,6 +8,8 @@
 using std::pow;
 
 
+const float EPSILON = 1e-4;
+
 
 float3 ReflectRay(float3 D, float3 N) {
 	return D - 2 * (dot(D, N) * N);
@@ -47,13 +49,14 @@ float DirectIllumination(Primitive * objects[], int n, Light lights[], int m, fl
 
 		float3 raw_vector = lights[i].pos - interseciton;
 
+
 		float3 D = normalize(raw_vector);
 
 	
 		float distance = length(raw_vector);
 
 
-		Ray ray = { interseciton, D, distance };
+		Ray ray = { interseciton + D*EPSILON, D, distance };
 
 
 		//printf("distance %f\n", distance);
@@ -117,8 +120,6 @@ void NearestIntersection(Primitive * objects[], int n, Ray* r, float3* intersect
 
 		float3 I = r->O + r->D * r->t;
 
-
-
 		intersection->x = I.x;
 		intersection->y = I.y;
 		intersection->z = I.z;
@@ -178,7 +179,11 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 
 		float d = 1 - s;
 
-		
+		float3 R = ReflectRay(ray.D, N);
+
+		Ray reflect = { I + R * EPSILON,R, -1 };
+
+
 		if (mat.type == Material::Type::reflect) {
 
 			float reflected = mat.intensity;
@@ -191,9 +196,7 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 
 
 
-			float3 R = ReflectRay(ray.D, N);
-
-			Ray reflect = { I,R, -1 };
+			
 
 			if (s == 1) return Trace(objects, n, lights, m, reflect, bounce++);
 			else {
@@ -226,22 +229,22 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 
 			float k = 1 - pow(mat.index, 2) * (1 - pow(cosine, 2));
 
-			float3 refracted_colour = colour;
+			float3 refracted_colour = mat.colour;
 
 
 			//printf("Start Refraction\n");
 
 			if (k >= 0)
 			{
-				
+
 				float3 T = mat.index * ray.D + N * (mat.index * cosine - sqrtf(k));
 
-				Ray refracted = { I, T, -1 };
+				Ray refracted = { I + T * EPSILON, T, -1 };
 
 
 
 
-				if (is_refracted){
+				if (is_refracted) {
 					float3 beer = -(mat.colour * ray.t);
 
 					//beer = float3(1, 1, 1);
@@ -258,16 +261,13 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 				refracted_colour = Trace(objects, n, lights, m, refracted, bounce++, true);
 
 			}
+			else {
+				refracted_colour = refracted_colour * DirectIllumination(objects, n, lights, m, I, N);
+			}
 
 			//printf("Done Refraction\n");
 
 			if (s == 1) return refracted_colour;
-
-
-			// reflection
-			float3 R = ReflectRay(ray.D, N);
-
-			Ray reflect = { I,R, -1 };
 
 
 			float3 colour = (s * refracted_colour) * (d * Trace(objects, n, lights, m, reflect, bounce++));

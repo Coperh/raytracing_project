@@ -11,20 +11,31 @@
 using namespace std::chrono;
 
 
-float3 frame[SCRHEIGHT][SCRWIDTH];
+
 
 
 TheApp* CreateApp() { return new MyApp(); }
 
 
 static float3 E(0, 0, 0), V(0, 0, 1);
-
 static float d = 0.5;
+
+
+float3 frame[SCRHEIGHT][SCRWIDTH];
+
+
+const int aa_res = 1;
+const int num_subpix = aa_res * aa_res;
+const int AA_Height = SCRHEIGHT * aa_res;
+const int AA_Width = SCRWIDTH * aa_res;
+
+Ray AntiAliasRays[AA_Height][AA_Width];
+
+
 
 
 
 int current_dir = 0;
-
 
 float3 dir8[] =
 {
@@ -54,9 +65,9 @@ Primitive* primitives[] = {
 	new Plane(float3(10, 0, 0), float3(1, 0, 0), Material(Material::Type::diffuse, float3(200, 200, 200),1)), // right wall
 	new Plane(float3(-10, 0, 0), float3(-1, 0, 0), Material(Material::Type::diffuse, float3(255, 0, 0),1)),// left wall
 
-	new Plane(float3(0, 0, -10), float3(0, 0, 1), Material(Material::Type::diffuse, float3(0, 255, 255),1)),// backwall
+	new Plane(float3(0, 0, -10), float3(0, 0, -1), Material(Material::Type::diffuse, float3(0, 255, 255),1)),// backwall
 
-	new Plane(float3(0, 10, 0), float3(0, 1, 0), Material(Material::Type::diffuse, float3(255, 255,0),0.5), true), //floor
+	new Plane(float3(0, 10, 0), float3(0, 1, 0), Material(Material::Type::reflect, float3(255, 255,0),0.5), true), //floor
 
 	//new Plane(float3(0, 0, 10), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window
 	//new Plane(float3(0, 0, 12), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window takes to long to render
@@ -73,13 +84,7 @@ Primitive* primitives[] = {
 //Sphere(float3(-50, 50, 100), 10, Material(Material::Type::diffuse, float3(0, 0, 255))),
 
 
-const int aa_res = 2;
-const int num_subpix = aa_res * aa_res;
-const int AA_Height = SCRHEIGHT * aa_res;
-const int AA_Width = SCRWIDTH * aa_res;
 
-
-Ray AntiAliasRays[AA_Height][AA_Width];
 
 int frame_count = 0;
 
