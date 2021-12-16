@@ -18,33 +18,24 @@ public:
 	float d;
 
 
-	bool Intersect(Ray* ray) {
+	float Intersect(Ray* ray) {
 
 		//printf("%f\n", ray->t);
 
 		float denom = dot(N, ray->D);
 
-		if (denom == 0) return false;
+		if (denom == 0) return -1;
 
 		float num = -(dot(ray->O, N) + d);
 
 		float t = num / denom;
 
 
-		//printf("%f\n", t);
+		//printf("Pred %f\n", t);
+
+		return t;
 
 
-		if (t > 0)
-			if (ray->t  < 0 || ray->t > t) {
-
-		
-				ray->t = t;
-
-				//printf("%f\n", ray->t);
-				return true;
-			}
-
-		return false;
 	}
 
 	void test() {

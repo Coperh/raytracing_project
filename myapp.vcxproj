@@ -131,6 +131,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cl\tools.cl" />
+    <ClInclude Include="Intersection.h" />
     <ClInclude Include="WhittedTrace.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="Material.h" />

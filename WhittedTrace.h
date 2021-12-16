@@ -2,7 +2,7 @@
 #include "cmath"
 #include "Light.h"
 #include "Primitive.h"
-
+#include "Intersection.h"
 
 
 using std::pow;
@@ -11,28 +11,7 @@ using std::pow;
 const float EPSILON = 1e-4;
 
 
-float3 ReflectRay(float3 D, float3 N) {
-	return D - 2 * (dot(D, N) * N);
-}
 
-
-
-bool AnyIntersection(Primitive * objects[], int n, Ray ray) {
-
-	//printf("2: %f %f %f\n", ray.D.x, ray.D.y, ray.D.z);
-
-	for (int i = 0; i < n; i++)
-	{
-		//printf("Sphape: %d, T:%f\n",i, r.t);
-		
-		// only returns true if there is an intersection nearer than the lightsource
-		if (objects[i]->Intersect(&ray)) {
-			
-			return true;
-		}
-	}
-	return false;
-}
 
 
 
@@ -66,11 +45,14 @@ float DirectIllumination(Primitive * objects[], int n, Light lights[], int m, fl
 	
 		if (!AnyIntersection(objects, n, ray)){
 
-
+			//printf("test\n");
 
 			float cosine = max(0.0f, dot(D, normal));
 
 			float dis_square = (distance * distance);
+
+			//printf("distance %f\n", distance);
+
 
 			//if (distance <= 10) intensity += light.intensity;
 
@@ -90,68 +72,32 @@ float DirectIllumination(Primitive * objects[], int n, Light lights[], int m, fl
 }
 
 
-void NearestIntersection(Primitive * objects[], int n, Ray* r, float3* intersection, float3* normal, Material* material) {
 
-	r->t = -1;
-
-	int nearest = -1;
+float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int bounce) {
 
 
+	bounce++;
 
-
-	for (int i = 0; i < n; i++)
-	{
-		//printf("boop\n");
-		
-		if (objects[i]->Intersect(r)) {
-			nearest = i;
-			
-			
-			material->type = objects[i]->mat.type;
-			material->colour = objects[i]->mat.colour;
-			material->intensity = objects[i]->mat.intensity;
-			material->is_checker = objects[i]->mat.is_checker;
-		}
-	}
-
-	// if intersected
-
-	if (r->t > 0) {
-
-		float3 I = r->O + r->D * r->t;
-
-		intersection->x = I.x;
-		intersection->y = I.y;
-		intersection->z = I.z;
-
-		float3 N = objects[nearest]->GetNormal(I, r->D);
-
-		normal->x = N.x;
-		normal->y = N.y;
-		normal->z = N.z;
-	}
-
-	//printf("%f\n", r->t);
-}
-
-
-float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int bounce, bool is_refracted = false) {
 
 	float3 N;
 	float3 I;
-	Material mat;
 	float3 colour;
 
-	//printf("Bounce %d\n", bounce);
+	//printf("b%d\n", bounce);
 
-	NearestIntersection(objects, n, &ray, &I, &N, &mat);
+	int i = NearestIntersection(objects, n, &ray, &I, &N);
 
-	if (ray.t < 0)
+	if (i < 0)
 		return float3(0, 0, 0);
 
-	//printf("I: %f %f %f\n", I.x, I.y, I.z);
+
+	//printf("I: %f, %f, %f\n", I.x, I.y, I.z);
+	//printf("N: %f, %f, %f\n", N.x, N.y, N.z);
 
 
+	Material mat = objects[i]->mat;
+
+	//printf("Mat Type %d\n", mat.type);
 
 	if (mat.is_checker) {
 
@@ -166,11 +112,18 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 		colour = mat.colour; }
 
 
+	//printf("bounce %d\n", bounce);
 
-	if (mat.type == Material::Type::diffuse || bounce  > 4) {
+	if (mat.type == Material::Type::diffuse || bounce  > 10) {
+
+
+		float dir = DirectIllumination(objects, n, lights, m, I, N);
+
+		//printf("%f\n", dir);
+
 		//printf("Col %f %f %f\n", colour.x, colour.y, colour.z);
 
-		return colour * DirectIllumination(objects, n, lights, m, I, N);;
+		return colour * dir;
 	}
 
 	else {
@@ -188,27 +141,21 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 
 			float reflected = mat.intensity;
 
-
-
 			if (s == 0) 
+				return colour * DirectIllumination(objects, n, lights, m, I, N);
 
-			return colour * DirectIllumination(objects, n, lights, m, I, N);
-
-
-
-			
-
-			if (s == 1) return Trace(objects, n, lights, m, reflect, bounce++);
+			if (s == 1) 
+				return Trace(objects, n, lights, m, reflect, bounce);
 			else {
 
-				colour = (s * Trace(objects, n, lights, m, reflect, bounce++)) +
+				colour = (s * Trace(objects, n, lights, m, reflect, bounce)) +
 					(d * colour * DirectIllumination(objects, n, lights, m, I, N));
 				return colour;
 			}
 			 
 		}
 
-		else if (mat.type == Material::Type::refract) 
+		else if (mat.type == Material::Type::refract)
 		{
 
 
@@ -217,15 +164,15 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 
 
 
-			if (s == 0) 
+			if (s == 0)
 				return colour * DirectIllumination(objects, n, lights, m, I, N);
-				
+
 
 
 
 			// refraction
 
-			float cosine = dot(N,  -ray.D);
+			float cosine = dot(N, -ray.D);
 
 			float k = 1 - pow(mat.index, 2) * (1 - pow(cosine, 2));
 
@@ -242,23 +189,17 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 				Ray refracted = { I + T * EPSILON, T, -1 };
 
 
+				float3 beer = -(mat.colour * ray.t);
+
+				//beer = float3(1, 1, 1);
 
 
-				if (is_refracted) {
-					float3 beer = -(mat.colour * ray.t);
+				refracted_colour = Trace(objects, n, lights, m, refracted, bounce);
 
-					//beer = float3(1, 1, 1);
-
-
-					refracted_colour = Trace(objects, n, lights, m, refracted, bounce++, false);
-
-					refracted_colour.x = pow(refracted_colour.x, beer.x);
-					refracted_colour.y = pow(refracted_colour.y, beer.y);
-					refracted_colour.z = pow(refracted_colour.x, beer.z);
-				}
-				// does not work on inner triangle
-
-				refracted_colour = Trace(objects, n, lights, m, refracted, bounce++, true);
+				refracted_colour.x = pow(refracted_colour.x, beer.x);
+				refracted_colour.y = pow(refracted_colour.y, beer.y);
+				refracted_colour.z = pow(refracted_colour.x, beer.z);
+			
 
 			}
 			else {
@@ -270,7 +211,7 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 			if (s == 1) return refracted_colour;
 
 
-			float3 colour = (s * refracted_colour) * (d * Trace(objects, n, lights, m, reflect, bounce++));
+			float3 colour = (s * refracted_colour) * (d * Trace(objects, n, lights, m, reflect, bounce));
 
 
 
@@ -279,14 +220,15 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 
 
 
-			
+
 			return colour;
 		};
-	
-	
-	
+
+
+
 
 	}
+
 
 	return float3(0, 0, 0);
 }

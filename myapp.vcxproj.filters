@@ -23,6 +23,7 @@
     <ClInclude Include="WhittedTrace.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="Primitive.h" />
+    <ClInclude Include="Intersection.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="template\LICENSE">

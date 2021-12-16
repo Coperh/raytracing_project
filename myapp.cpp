@@ -50,7 +50,6 @@ float3 dir8[] =
 };
 
 
-
 int num_light;
 Light lightsources[] = { 
 	Light(float3(-5, -10, 0), 0.5),
@@ -60,12 +59,11 @@ Light lightsources[] = {
 int num_prim;
 Primitive* primitives[] = {
 
-	//new Sphere(float3(-50,-50, 100), 10, Material(Material::Type::diffuse, float3(255,0,0),1)),
 	new Plane(float3(0, 0, 10), float3(0, 0, 1), Material(Material::Type::diffuse, float3(255, 0, 255),1)),// backwall
 	new Plane(float3(10, 0, 0), float3(1, 0, 0), Material(Material::Type::diffuse, float3(200, 200, 200),1)), // right wall
 	new Plane(float3(-10, 0, 0), float3(-1, 0, 0), Material(Material::Type::diffuse, float3(255, 0, 0),1)),// left wall
 
-	new Plane(float3(0, 0, -10), float3(0, 0, -1), Material(Material::Type::diffuse, float3(0, 255, 255),1)),// backwall
+	//new Plane(float3(0, 0, -10), float3(0, 0, -1), Material(Material::Type::diffuse, float3(0, 255, 255),1)),// backwall
 
 	new Plane(float3(0, 10, 0), float3(0, 1, 0), Material(Material::Type::reflect, float3(255, 255,0),0.5), true), //floor
 
@@ -73,7 +71,7 @@ Primitive* primitives[] = {
 	//new Plane(float3(0, 0, 12), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window takes to long to render
 
 	new Sphere(float3(0, 0, 5), 2, Material(Material::Type::refract, float3(0, 255,0), 0.5))
-	//new Sphere(float3(0, 5, 40), 2, Material(Material::Type::diffuse, float3(0,0 ,255), 1))
+	//new Sphere(float3(0, 0, 5), 2, Material(Material::Type::diffuse, float3(0,0 ,255), 1))
 };
 
 
@@ -188,12 +186,16 @@ void MyApp::Init()
 
 	CalculateWindow();
 
+
+
+
 	num_prim = sizeof(primitives) / sizeof(primitives[0]);
 
 	num_light = sizeof(lightsources) / sizeof(lightsources[0]);
 
 
-	printf("Number of primitives %d\n", num_prim);
+	printf("Scene with %d primitives and %d lights\n", num_prim, num_light);
+
 
 
 	//primitives[0]->test();
@@ -264,12 +266,7 @@ void MyApp::Tick( float deltaTime )
 		const uint ib = min((uint)(b * 255), 255u);
 		screen->Plot(x, y, (ir << 16) + (ig << 8) + ib);
 
-
 		//printf("Done %d %d\n", y, x);
-		
-		
-
-
 	}
 
 
@@ -277,7 +274,6 @@ void MyApp::Tick( float deltaTime )
 		system_clock::now().time_since_epoch()
 		);
 
-	
 	double time = (end - start).count()/1000;
 
 	printf("Frame %d rendered in %f seconds\n", frame_count, time);
