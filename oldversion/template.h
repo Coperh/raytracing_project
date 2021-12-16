@@ -1,36 +1,16 @@
-// Template, IGAD version 2
-// IGAD/NHTV/UU - Jacco Bikker - 2006-2021
+// Template, BUAS version https://www.buas.nl/games
+// IGAD/BUAS(NHTV)/UU - Jacco Bikker - 2006-2020
 
-// add your includes to this file instead of to individual .cpp files
-// to enjoy the benefits of precompiled headers:
-// - fast compilation
-// - solve issues with the order of header files once (here)
-// do not include headers in header files (ever).
+#pragma once
+#if defined _M_IX86
+#pragma comment(linker, "/manifestdependency:\"name='dlls_x86' version='1.0.0.0' type='win32'\"")
+#elif defined _M_X64
+#pragma comment(linker, "/manifestdependency:\"name='dlls_x64' version='1.0.0.0' type='x64'\"")
+#endif
 
-// C++ headers
-#include <chrono>
-#include <fstream>
-#include <vector>
-#include <list>
-#include <string>
-#include <thread>
-#include <math.h>
+#include <cstdlib>
+#include <cstdio>
 #include <algorithm>
-#include <assert.h>
-#include <io.h>
-
-#include "lib/stb_image.h"
-
-// header for AVX, and every technology before it.
-// if your CPU does not support this (unlikely), include the appropriate header instead.
-// see: https://stackoverflow.com/a/11228864/2844473
-#include <immintrin.h>
-
-// clang-format off
-
-// "leak" common namespaces to all compilation units. This is not standard
-// C++ practice but a simplification for template projects.
-using namespace std;
 
 // windows
 #define NOMINMAX
@@ -40,20 +20,24 @@ using namespace std;
 #endif
 #include <windows.h>
 
-// OpenCL headers
-#include "cl/cl.h"
-#include <cl/cl_gl_ext.h>
+// header for AVX, and every technology before it.
+// if your CPU does not support this (unlikely), include the appropriate header instead.
+// see: https://stackoverflow.com/a/11228864/2844473
+#include <immintrin.h>
 
-// GLFW
-#define GLFW_USE_CHDIR 0
-#define GLFW_EXPOSE_NATIVE_WIN32
-#define GLFW_EXPOSE_NATIVE_WGL
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
+constexpr int ScreenWidth = 800;
+constexpr int ScreenHeight = 512;
+// #define FULLSCREEN
+// #define ADVANCEDGL	// faster if your system supports it. Switches SDL2's texture buffer out for OpenGL texture buffer with mappings to CPU Memory. 
 
-// zlib
-#include "zlib.h"
+static const char* TemplateVersion = "Template_v2019.08";
+
+//SIMD Intrinsics headers.
+//#include "emmintrin.h"
+//#include "immintrin.h"
+
+inline float Rand( float range ) { return ((float)rand() / RAND_MAX) * range; }
+inline int IRand( int range ) { return rand() % range; }
 
 // basic types
 typedef unsigned char uchar;
@@ -63,43 +47,36 @@ typedef unsigned short ushort;
 typedef unsigned char BYTE;		// for freeimage.h
 typedef unsigned short WORD;	// for freeimage.h
 typedef unsigned long DWORD;	// for freeimage.h
-typedef int BOOL;				// for freeimage.h
+// typedef int BOOL;				// for freeimage.h
 #endif
 
-namespace Tmpl8
-{
+namespace Tmpl8 {
 
-// 32-bit surface container
-class Surface
-{
-	enum { OWNER = 1 };
-public:
-	// constructor / destructor
-	Surface( int w, int h, uint* a_Buffer );
-	Surface( int w, int h );
-	Surface( const char* file );
-	~Surface();
-	// operations
-	void InitCharset();
-	void SetChar( int c, const char* c1, const char* c2, const char* c3, const char* c4, const char* c5 );
-	void Print( const char* t, int x1, int y1, uint c );
-	void Clear( uint c );
-	void Line( float x1, float y1, float x2, float y2, uint c );
-	void Plot( int x, int y, uint c );
-	void LoadImage( const char* file );
-	void CopyTo( Surface* dst, int a_X, int a_Y );
-	void Box( int x1, int y1, int x2, int y2, uint color );
-	void Bar( int x1, int y1, int x2, int y2, uint color );
-	// attributes
-	uint* buffer = 0;
-	int width = 0, height = 0;
-};
+template <typename T>
+constexpr T Min(T a, T b) { return (a > b) ? b : a; }
 
-};
+template <typename T>
+constexpr T Max(T a, T b) { return (a > b) ? a : b; }
 
-// namespaces
-using namespace Tmpl8;
+template <typename T>
+constexpr T Clamp(T value, T min, T max) { return Min(max, Max(value, min)); }
 
+constexpr float PI = 3.14159265358979323846264338327950288419716939937510582097494459072381640628620899862803482534211706798f;
+
+#define PREFETCH(x)			_mm_prefetch((const char*)(x),_MM_HINT_T0)
+#define PREFETCH_ONCE(x)	_mm_prefetch((const char*)(x),_MM_HINT_NTA)
+#define PREFETCH_WRITE(x)	_m_prefetchw((const char*)(x))
+#define loadss(mem)			_mm_load_ss((const float*const)(mem))
+#define broadcastps(ps)		_mm_shuffle_ps((ps),(ps), 0)
+#define broadcastss(ss)		broadcastps(loadss((ss)))
+
+#if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
+#define   likely(expr) (expr)
+#define unlikely(expr) (expr)
+#else
+#define   likely(expr) __builtin_expect((expr),true )
+#define unlikely(expr) __builtin_expect((expr),false)
+#endif
 // aligned memory allocations
 #ifdef _MSC_VER
 #define ALIGN( x ) __declspec( align( x ) )
@@ -118,6 +95,23 @@ using namespace Tmpl8;
 #define CHECK_RESULT
 #endif
 
+// namespaces
+using namespace Tmpl8;
+using namespace std;
+
+struct timer 
+{ 
+	typedef long long value_type; 
+	static double inv_freq; 
+	value_type start;
+	timer();
+	float elapsed() const;
+	static value_type get();
+	static double to_time(const value_type vt);
+	void reset();
+	static void init();
+};
+
 // vector type placeholders, carefully matching OpenCL's layout and alignment
 struct ALIGN( 8 ) int2 { int2() = default; int2( int a, int b ) : x( a ), y( b ) {} int x, y; };
 struct ALIGN( 8 ) uint2 { uint2() = default; uint2( int a, int b ) : x( a ), y( b ) {} uint x, y; };
@@ -129,145 +123,6 @@ struct ALIGN( 16 ) int4 { int x, y, z, w; };
 struct ALIGN( 16 ) uint4 { uint x, y, z, w; };
 struct ALIGN( 16 ) float4 { float x, y, z, w; };
 struct ALIGN( 4 ) uchar4 { uchar x, y, z, w; };
-
-// fatal error reporting (with a pretty window)
-#define FATALERROR( fmt, ... ) FatalError( "Error on line %d of %s: " fmt "\n", __LINE__, __FILE__, ##__VA_ARGS__ )
-#define FATALERROR_IF( condition, fmt, ... ) do { if ( ( condition ) ) FATALERROR( fmt, ##__VA_ARGS__ ); } while ( 0 )
-#define FATALERROR_IN( prefix, errstr, fmt, ... ) FatalError( prefix " returned error '%s' at %s:%d" fmt "\n", errstr, __FILE__, __LINE__, ##__VA_ARGS__ );
-#define FATALERROR_IN_CALL( stmt, error_parser, fmt, ... ) do { auto ret = ( stmt ); if ( ret ) FATALERROR_IN( #stmt, error_parser( ret ), fmt, ##__VA_ARGS__ ) } while ( 0 )
-
-// OpenGL texture wrapper
-class GLTexture
-{
-public:
-	enum { DEFAULT = 0, FLOAT = 1, INTTARGET = 2 };
-	// constructor / destructor
-	GLTexture( uint width, uint height, uint type = DEFAULT );
-	~GLTexture();
-	// methods
-	void Bind( const uint slot = 0 );
-	void CopyFrom( Tmpl8::Surface* src );
-	void CopyTo( Tmpl8::Surface* dst );
-public:
-	// public data members
-	GLuint ID = 0;
-	uint width = 0, height = 0;
-};
-
-// shader wrapper
-class mat4;
-class Shader
-{
-public:
-	// constructor / destructor
-	Shader( const char* vfile, const char* pfile, bool fromString );
-	~Shader();
-	// methods
-	void Init( const char* vfile, const char* pfile );
-	void Compile( const char* vtext, const char* ftext );
-	void Bind();
-	void SetInputTexture( uint slot, const char* name, GLTexture* texture );
-	void SetInputMatrix( const char* name, const mat4& matrix );
-	void SetFloat( const char* name, const float v );
-	void SetInt( const char* name, const int v );
-	void SetUInt( const char* name, const uint v );
-	void Unbind();
-private:
-	// data members
-	uint vertex = 0;	// vertex shader identifier
-	uint pixel = 0;		// fragment shader identifier
-	uint ID = 0;		// shader program identifier
-};
-
-// generic error checking for OpenGL code
-#define CheckGL() { _CheckGL( __FILE__, __LINE__ ); }
-
-// forward declarations of helper functions
-void _CheckGL( const char* f, int l );
-GLuint CreateVBO( const GLfloat* data, const uint size );
-void BindVBO( const uint idx, const uint N, const GLuint id );
-void CheckShader( GLuint shader, const char* vshader, const char* fshader );
-void CheckProgram( GLuint id, const char* vshader, const char* fshader );
-void DrawQuad();
-
-// timer
-struct Timer
-{
-	Timer() { reset(); }
-	float elapsed() const
-	{
-		chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
-		chrono::duration<double> time_span = chrono::duration_cast<chrono::duration<double>>(t2 - start);
-		return (float)time_span.count();
-	}
-	void reset() { start = chrono::high_resolution_clock::now(); }
-	chrono::high_resolution_clock::time_point start;
-};
-
-// swap
-template <class T> void Swap( T& x, T& y ) { T t; t = x, x = y, y = t; }
-
-// Nils's jobmanager
-class Job
-{
-public:
-	virtual void Main() = 0;
-protected:
-	friend class JobThread;
-	void RunCodeWrapper();
-};
-class JobThread
-{
-public:
-	void CreateAndStartThread( unsigned int threadId );
-	void Go();
-	void BackgroundTask();
-	HANDLE m_GoSignal, m_ThreadHandle;
-	int m_ThreadID;
-};
-class JobManager	// singleton class!
-{
-protected:
-	JobManager( unsigned int numThreads );
-public:
-	~JobManager();
-	static void CreateJobManager( unsigned int numThreads );
-	static JobManager* GetJobManager();
-	static void GetProcessorCount( uint& cores, uint& logical );
-	void AddJob2( Job* a_Job );
-	unsigned int GetNumThreads() { return m_NumThreads; }
-	void RunJobs();
-	void ThreadDone( unsigned int n );
-	int MaxConcurrent() { return m_NumThreads; }
-protected:
-	friend class JobThread;
-	Job* GetNextJob();
-	static JobManager* m_JobManager;
-	Job* m_JobList[256];
-	CRITICAL_SECTION m_CS;
-	HANDLE m_ThreadDone[64];
-	unsigned int m_NumThreads, m_JobCount;
-	JobThread* m_JobThreadList;
-};
-
-// random numbers
-uint RandomUInt();
-uint RandomUInt( uint& seed );
-float RandomFloat();
-float RandomFloat( uint& seed );
-float Rand( float range );
-
-// Perlin noise
-float noise2D( const float x, const float y );
-
-// forward declaration of helper functions
-void FatalError( const char* fmt, ... );
-bool FileIsNewer( const char* file1, const char* file2 );
-bool FileExists( const char* f );
-bool RemoveFile( const char* f );
-string TextFileRead( const char* _File );
-int LineCount( const string s );
-void TextFileWrite( const string& text, const char* _File );
 
 // math
 inline float fminf( float a, float b ) { return a < b ? a : b; }
@@ -557,22 +412,10 @@ inline float4 operator/( float b, const float4& a ) { return make_float4( b / a.
 inline float2 fminf( const float2& a, const float2& b ) { return make_float2( fminf( a.x, b.x ), fminf( a.y, b.y ) ); }
 inline float3 fminf( const float3& a, const float3& b ) { return make_float3( fminf( a.x, b.x ), fminf( a.y, b.y ), fminf( a.z, b.z ) ); }
 inline float4 fminf( const float4& a, const float4& b ) { return make_float4( fminf( a.x, b.x ), fminf( a.y, b.y ), fminf( a.z, b.z ), fminf( a.w, b.w ) ); }
-inline int2 min( const int2& a, const int2& b ) { return make_int2( min( a.x, b.x ), min( a.y, b.y ) ); }
-inline int3 min( const int3& a, const int3& b ) { return make_int3( min( a.x, b.x ), min( a.y, b.y ), min( a.z, b.z ) ); }
-inline int4 min( const int4& a, const int4& b ) { return make_int4( min( a.x, b.x ), min( a.y, b.y ), min( a.z, b.z ), min( a.w, b.w ) ); }
-inline uint2 min( const uint2& a, const uint2& b ) { return make_uint2( min( a.x, b.x ), min( a.y, b.y ) ); }
-inline uint3 min( const uint3& a, const uint3& b ) { return make_uint3( min( a.x, b.x ), min( a.y, b.y ), min( a.z, b.z ) ); }
-inline uint4 min( const uint4& a, const uint4& b ) { return make_uint4( min( a.x, b.x ), min( a.y, b.y ), min( a.z, b.z ), min( a.w, b.w ) ); }
 
 inline float2 fmaxf( const float2& a, const float2& b ) { return make_float2( fmaxf( a.x, b.x ), fmaxf( a.y, b.y ) ); }
 inline float3 fmaxf( const float3& a, const float3& b ) { return make_float3( fmaxf( a.x, b.x ), fmaxf( a.y, b.y ), fmaxf( a.z, b.z ) ); }
 inline float4 fmaxf( const float4& a, const float4& b ) { return make_float4( fmaxf( a.x, b.x ), fmaxf( a.y, b.y ), fmaxf( a.z, b.z ), fmaxf( a.w, b.w ) ); }
-inline int2 max( const int2& a, const int2& b ) { return make_int2( max( a.x, b.x ), max( a.y, b.y ) ); }
-inline int3 max( const int3& a, const int3& b ) { return make_int3( max( a.x, b.x ), max( a.y, b.y ), max( a.z, b.z ) ); }
-inline int4 max( const int4& a, const int4& b ) { return make_int4( max( a.x, b.x ), max( a.y, b.y ), max( a.z, b.z ), max( a.w, b.w ) ); }
-inline uint2 max( const uint2& a, const uint2& b ) { return make_uint2( max( a.x, b.x ), max( a.y, b.y ) ); }
-inline uint3 max( const uint3& a, const uint3& b ) { return make_uint3( max( a.x, b.x ), max( a.y, b.y ), max( a.z, b.z ) ); }
-inline uint4 max( const uint4& a, const uint4& b ) { return make_uint4( max( a.x, b.x ), max( a.y, b.y ), max( a.z, b.z ), max( a.w, b.w ) ); }
 
 inline float lerp( float a, float b, float t ) { return a + t * (b - a); }
 inline float2 lerp( const float2& a, const float2& b, float t ) { return a + t * (b - a); }
@@ -623,28 +466,17 @@ inline float2 normalize( const float2& v ) { float invLen = rsqrtf( dot( v, v ) 
 inline float3 normalize( const float3& v ) { float invLen = rsqrtf( dot( v, v ) ); return v * invLen; }
 inline float4 normalize( const float4& v ) { float invLen = rsqrtf( dot( v, v ) ); return v * invLen; }
 
-inline uint dominantAxis( const float2& v ) { float x = fabs( v.x ), y = fabs( v.y ); return x > y ? 0 : 1; } // for coherent grid traversal
-inline uint dominantAxis( const float3& v ) { float x = fabs( v.x ), y = fabs( v.y ), z = fabs( v.z ); float m = max( max( x, y ), z ); return m == x ? 0 : (m == y ? 1 : 2); }
-
-inline float2 floorf( const float2& v ) { return make_float2( floorf( v.x ), floorf( v.y ) ); }
-inline float3 floorf( const float3& v ) { return make_float3( floorf( v.x ), floorf( v.y ), floorf( v.z ) ); }
-inline float4 floorf( const float4& v ) { return make_float4( floorf( v.x ), floorf( v.y ), floorf( v.z ), floorf( v.w ) ); }
+inline uint dominantAxis( const float2& v ) { float x = fabsf( v.x ), y = fabsf( v.y ); return x > y ? 0 : 1; } // for coherent grid traversal
+inline uint dominantAxis( const float3& v ) { float x = fabsf( v.x ), y = fabsf( v.y ), z = fabsf( v.z ); float m = max( max( x, y ), z ); return m == x ? 0 : (m == y ? 1 : 2); }
 
 inline float fracf( float v ) { return v - floorf( v ); }
 inline float2 fracf( const float2& v ) { return make_float2( fracf( v.x ), fracf( v.y ) ); }
 inline float3 fracf( const float3& v ) { return make_float3( fracf( v.x ), fracf( v.y ), fracf( v.z ) ); }
 inline float4 fracf( const float4& v ) { return make_float4( fracf( v.x ), fracf( v.y ), fracf( v.z ), fracf( v.w ) ); }
 
-inline float2 fmodf( const float2& a, const float2& b ) { return make_float2( fmodf( a.x, b.x ), fmodf( a.y, b.y ) ); }
-inline float3 fmodf( const float3& a, const float3& b ) { return make_float3( fmodf( a.x, b.x ), fmodf( a.y, b.y ), fmodf( a.z, b.z ) ); }
-inline float4 fmodf( const float4& a, const float4& b ) { return make_float4( fmodf( a.x, b.x ), fmodf( a.y, b.y ), fmodf( a.z, b.z ), fmodf( a.w, b.w ) ); }
-
-inline float2 fabs( const float2& v ) { return make_float2( fabs( v.x ), fabs( v.y ) ); }
-inline float3 fabs( const float3& v ) { return make_float3( fabs( v.x ), fabs( v.y ), fabs( v.z ) ); }
-inline float4 fabs( const float4& v ) { return make_float4( fabs( v.x ), fabs( v.y ), fabs( v.z ), fabs( v.w ) ); }
-inline int2 abs( const int2& v ) { return make_int2( abs( v.x ), abs( v.y ) ); }
-inline int3 abs( const int3& v ) { return make_int3( abs( v.x ), abs( v.y ), abs( v.z ) ); }
-inline int4 abs( const int4& v ) { return make_int4( abs( v.x ), abs( v.y ), abs( v.z ), abs( v.w ) ); }
+inline float2 fabs( const float2& v ) { return make_float2( fabsf( v.x ), fabsf( v.y ) ); }
+inline float3 fabs( const float3& v ) { return make_float3( fabsf( v.x ), fabsf( v.y ), fabsf( v.z ) ); }
+inline float4 fabs( const float4& v ) { return make_float4( fabsf( v.x ), fabsf( v.y ), fabsf( v.z ), fabsf( v.w ) ); }
 
 inline float3 reflect( const float3& i, const float3& n ) { return i - 2.0f * n * dot( n, i ); }
 
@@ -931,20 +763,20 @@ public:
 		}
 		else if (m( 0, 0 ) > m( 1, 1 ) && m( 0, 0 ) > m( 2, 2 ))
 		{
-			S = sqrt( 1.0f + m( 0, 0 ) - m( 1, 1 ) - m( 2, 2 ) ) * 2;
+			S = sqrtf( 1.0f + m( 0, 0 ) - m( 1, 1 ) - m( 2, 2 ) ) * 2;
 			w = (m( 2, 1 ) - m( 1, 2 )) / S, x = 0.25f * S;
 			y = (m( 0, 1 ) + m( 1, 0 )) / S, z = (m( 0, 2 ) + m( 2, 0 )) / S;
 		}
 		else if (m( 1, 1 ) > m( 2, 2 ))
 		{
-			S = sqrt( 1.0f + m( 1, 1 ) - m( 0, 0 ) - m( 2, 2 ) ) * 2;
+			S = sqrtf( 1.0f + m( 1, 1 ) - m( 0, 0 ) - m( 2, 2 ) ) * 2;
 			w = (m( 0, 2 ) - m( 2, 0 )) / S;
 			x = (m( 0, 1 ) + m( 1, 0 )) / S, y = 0.25f * S;
 			z = (m( 1, 2 ) + m( 2, 1 )) / S;
 		}
 		else
 		{
-			S = sqrt( 1.0f + m( 2, 2 ) - m( 0, 0 ) - m( 1, 1 ) ) * 2;
+			S = sqrtf( 1.0f + m( 2, 2 ) - m( 0, 0 ) - m( 1, 1 ) ) * 2;
 			w = (m( 1, 0 ) - m( 0, 1 )) / S, x = (m( 0, 2 ) + m( 2, 0 )) / S;
 			y = (m( 1, 2 ) + m( 2, 1 )) / S, z = 0.25f * S;
 		}
@@ -1006,7 +838,7 @@ public:
 		}
 		float halfTheta = acosf( cosHalfTheta );
 		float sinHalfTheta = sqrtf( 1.0f - cosHalfTheta * cosHalfTheta );
-		if (fabs( sinHalfTheta ) < 0.001f)
+		if (fabsf( sinHalfTheta ) < 0.001f)
 		{
 			qm.w = a.w * 0.5f + b.w * 0.5f, qm.x = a.x * 0.5f + b.x * 0.5f;
 			qm.y = a.y * 0.5f + b.y * 0.5f, qm.z = a.z * 0.5f + b.z * 0.5f;
@@ -1026,200 +858,52 @@ public:
 	float w = 1, x = 0, y = 0, z = 0;
 };
 
-// OpenCL buffer
-class Buffer
+inline bool BadFloat(float x)
+{
+	return ((*reinterpret_cast<uint*>(&x) & 0x7f000000) == 0x7f000000);
+}
+
+// Nils's jobmanager
+class Job
 {
 public:
-	enum { DEFAULT = 0, TEXTURE = 8, TARGET = 16, READONLY = 1, WRITEONLY = 2 };
-	// constructor / destructor
-	Buffer() : hostBuffer( 0 ) {}
-	Buffer( unsigned int N, unsigned int t = DEFAULT, void* ptr = 0 );
-	~Buffer();
-	cl_mem* GetDevicePtr() { return &deviceBuffer; }
-	unsigned int* GetHostPtr() { return hostBuffer; }
-	void CopyToDevice( bool blocking = true );
-	void CopyToDevice2( bool blocking, cl_event* e = 0, const size_t s = 0 );
-	void CopyFromDevice( bool blocking = true );
-	void CopyTo( Buffer* buffer );
-	void Clear();
-	// data members
-	unsigned int* hostBuffer;
-	cl_mem deviceBuffer = 0;
-	unsigned int type, size, textureID;
-	bool ownData;
+	virtual void Main() = 0;
+protected:
+	friend class JobThread;
+	void RunCodeWrapper();
 };
-
-// OpenCL kernel
-class Kernel
-{
-	friend class Buffer;
-public:
-	// constructor / destructor
-	Kernel( char* file, char* entryPoint );
-	Kernel( cl_program& existingProgram, char* entryPoint );
-	~Kernel();
-	// get / set
-	cl_kernel& GetKernel() { return kernel; }
-	cl_program& GetProgram() { return program; }
-	static cl_command_queue& GetQueue() { return queue; }
-	static cl_command_queue& GetQueue2() { return queue2; }
-	static cl_context& GetContext() { return context; }
-	static cl_device_id& GetDevice() { return device; }
-	// methods
-	void Run( cl_event* eventToWaitFor = 0, cl_event* eventToSet = 0 );
-	void Run( cl_mem* buffers, int count = 1, cl_event* eventToWaitFor = 0, cl_event* eventToSet = 0, cl_event* acq = 0, cl_event* rel = 0 );
-	void Run( Buffer* buffer, const int2 localSize = make_int2( 32, 2 ), cl_event* eventToWaitFor = 0, cl_event* eventToSet = 0, cl_event* acq = 0, cl_event* rel = 0 );
-	void Run( const size_t count, const size_t localSize = 0, cl_event* eventToWaitFor = 0, cl_event* eventToSet = 0 );
-	void Run2D( const int2 count, const int2 lsize, cl_event* eventToWaitFor = 0, cl_event* eventToSet = 0 );
-	void SetArgument( int idx, cl_mem* buffer );
-	void SetArgument( int idx, Buffer* buffer );
-	void SetArgument( int idx, float );
-	void SetArgument( int idx, int );
-	void SetArgument( int idx, float2 );
-	void SetArgument( int idx, float3 );
-	void SetArgument( int idx, float4 );
-	static bool InitCL();
-	static void KillCL();
-private:
-	// data members
-	cl_kernel kernel;
-	cl_mem vbo_cl;
-	cl_program program;
-	bool arg0set = false;
-	inline static cl_device_id device;
-	inline static cl_context context; // simplifies some things, but limits us to one device
-	inline static cl_command_queue queue, queue2;
-	inline static char* log = 0;
-public:
-	inline static bool candoInterop = false, clStarted = false;
-};
-
-// global project settigs; shared with OpenCL
-#include "common.h"
-
-// InstructionSet.cpp
-// Compile by using: cl /EHsc /W4 InstructionSet.cpp
-// processor: x86, x64
-// Uses the __cpuid intrinsic to get information about
-// CPU extended instruction set support.
-
-#include <iostream>
-#include <bitset>
-#include <array>
-#include <intrin.h>
-
-// instruction set detection
-#ifdef _WIN32
-#define cpuid(info, x) __cpuidex(info, x, 0)
-#else
-#include <cpuid.h>
-void cpuid( int info[4], int InfoType ) { __cpuid_count( InfoType, 0, info[0], info[1], info[2], info[3] ); }
-#endif
-class CPUCaps // from https://github.com/Mysticial/FeatureDetector
+class JobThread
 {
 public:
-	static inline bool HW_MMX = false;
-	static inline bool HW_x64 = false;
-	static inline bool HW_ABM = false;
-	static inline bool HW_RDRAND = false;
-	static inline bool HW_BMI1 = false;
-	static inline bool HW_BMI2 = false;
-	static inline bool HW_ADX = false;
-	static inline bool HW_PREFETCHWT1 = false;
-	// SIMD: 128-bit
-	static inline bool HW_SSE = false;
-	static inline bool HW_SSE2 = false;
-	static inline bool HW_SSE3 = false;
-	static inline bool HW_SSSE3 = false;
-	static inline bool HW_SSE41 = false;
-	static inline bool HW_SSE42 = false;
-	static inline bool HW_SSE4a = false;
-	static inline bool HW_AES = false;
-	static inline bool HW_SHA = false;
-	// SIMD: 256-bit
-	static inline bool HW_AVX = false;
-	static inline bool HW_XOP = false;
-	static inline bool HW_FMA3 = false;
-	static inline bool HW_FMA4 = false;
-	static inline bool HW_AVX2 = false;
-	// SIMD: 512-bit
-	static inline bool HW_AVX512F = false;    //  AVX512 Foundation
-	static inline bool HW_AVX512CD = false;   //  AVX512 Conflict Detection
-	static inline bool HW_AVX512PF = false;   //  AVX512 Prefetch
-	static inline bool HW_AVX512ER = false;   //  AVX512 Exponential + Reciprocal
-	static inline bool HW_AVX512VL = false;   //  AVX512 Vector Length Extensions
-	static inline bool HW_AVX512BW = false;   //  AVX512 Byte + Word
-	static inline bool HW_AVX512DQ = false;   //  AVX512 Doubleword + Quadword
-	static inline bool HW_AVX512IFMA = false; //  AVX512 Integer 52-bit Fused Multiply-Add
-	static inline bool HW_AVX512VBMI = false; //  AVX512 Vector Byte Manipulation Instructions
-	// constructor
-	CPUCaps()
-	{
-		int info[4];
-		cpuid( info, 0 );
-		int nIds = info[0];
-		cpuid( info, 0x80000000 );
-		unsigned nExIds = info[0];
-		// detect Features
-		if (nIds >= 0x00000001)
-		{
-			cpuid( info, 0x00000001 );
-			HW_MMX = (info[3] & ((int)1 << 23)) != 0;
-			HW_SSE = (info[3] & ((int)1 << 25)) != 0;
-			HW_SSE2 = (info[3] & ((int)1 << 26)) != 0;
-			HW_SSE3 = (info[2] & ((int)1 << 0)) != 0;
-			HW_SSSE3 = (info[2] & ((int)1 << 9)) != 0;
-			HW_SSE41 = (info[2] & ((int)1 << 19)) != 0;
-			HW_SSE42 = (info[2] & ((int)1 << 20)) != 0;
-			HW_AES = (info[2] & ((int)1 << 25)) != 0;
-			HW_AVX = (info[2] & ((int)1 << 28)) != 0;
-			HW_FMA3 = (info[2] & ((int)1 << 12)) != 0;
-			HW_RDRAND = (info[2] & ((int)1 << 30)) != 0;
-		}
-		if (nIds >= 0x00000007)
-		{
-			cpuid( info, 0x00000007 );
-			HW_AVX2 = (info[1] & ((int)1 << 5)) != 0;
-			HW_BMI1 = (info[1] & ((int)1 << 3)) != 0;
-			HW_BMI2 = (info[1] & ((int)1 << 8)) != 0;
-			HW_ADX = (info[1] & ((int)1 << 19)) != 0;
-			HW_SHA = (info[1] & ((int)1 << 29)) != 0;
-			HW_PREFETCHWT1 = (info[2] & ((int)1 << 0)) != 0;
-			HW_AVX512F = (info[1] & ((int)1 << 16)) != 0;
-			HW_AVX512CD = (info[1] & ((int)1 << 28)) != 0;
-			HW_AVX512PF = (info[1] & ((int)1 << 26)) != 0;
-			HW_AVX512ER = (info[1] & ((int)1 << 27)) != 0;
-			HW_AVX512VL = (info[1] & ((int)1 << 31)) != 0;
-			HW_AVX512BW = (info[1] & ((int)1 << 30)) != 0;
-			HW_AVX512DQ = (info[1] & ((int)1 << 17)) != 0;
-			HW_AVX512IFMA = (info[1] & ((int)1 << 21)) != 0;
-			HW_AVX512VBMI = (info[2] & ((int)1 << 1)) != 0;
-		}
-		if (nExIds >= 0x80000001)
-		{
-			cpuid( info, 0x80000001 );
-			HW_x64 = (info[3] & ((int)1 << 29)) != 0;
-			HW_ABM = (info[2] & ((int)1 << 5)) != 0;
-			HW_SSE4a = (info[2] & ((int)1 << 6)) != 0;
-			HW_FMA4 = (info[2] & ((int)1 << 16)) != 0;
-			HW_XOP = (info[2] & ((int)1 << 11)) != 0;
-		}
-	}
+	void CreateAndStartThread( unsigned int threadId );
+	void Go();
+	void BackgroundTask();
+	HANDLE m_GoSignal, m_ThreadHandle;
+	int m_ThreadID;
 };
-
-// application base class
-class TheApp
+class JobManager	// singleton class!
 {
+protected:
+	JobManager( unsigned int numThreads );
 public:
-	virtual void Init() = 0;
-	virtual void Tick( float deltaTime ) = 0;
-	virtual void Shutdown() = 0;
-	virtual void MouseUp( int button ) = 0;
-	virtual void MouseDown( int button ) = 0;
-	virtual void MouseMove( int x, int y ) = 0;
-	virtual void KeyUp( int key ) = 0;
-	virtual void KeyDown( int key ) = 0;
-	Surface* screen = 0;
+	~JobManager();
+	static void CreateJobManager( unsigned int numThreads );
+	static JobManager* GetJobManager();
+	static void GetProcessorCount( uint& cores, uint& logical );
+	void AddJob2( Job* a_Job );
+	unsigned int GetNumThreads() { return m_NumThreads; }
+	void RunJobs();
+	void ThreadDone( unsigned int n );
+	int MaxConcurrent() { return m_NumThreads; }
+protected:
+	friend class JobThread;
+	Job* GetNextJob();
+	static JobManager* m_JobManager;
+	Job* m_JobList[256];
+	CRITICAL_SECTION m_CS;
+	HANDLE m_ThreadDone[64];
+	unsigned int m_NumThreads, m_JobCount;
+	JobThread* m_JobThreadList;
 };
 
-// EOF
+}; // namespace Tmpl8

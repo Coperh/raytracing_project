@@ -26,7 +26,7 @@ public:
 
 		this->intensity = intensity;
 
-		this->is_checker == false;
+		this->is_checker = false;
 	}
 
 

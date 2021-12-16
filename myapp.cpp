@@ -3,7 +3,7 @@
 #include "Sphere.h"
 #include "Plane.h"
 #include "Material.h"
-#include "Intersection.h"
+#include "WhittedTrace.h"
 #include "Light.h"
 #include <chrono>
 

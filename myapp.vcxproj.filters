@@ -20,7 +20,7 @@
     <ClInclude Include="Plane.h" />
     <ClInclude Include="Sphere.h" />
     <ClInclude Include="Material.h" />
-    <ClInclude Include="Intersection.h" />
+    <ClInclude Include="WhittedTrace.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="Primitive.h" />
   </ItemGroup>
