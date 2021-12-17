@@ -7,6 +7,10 @@
 // - solve issues with the order of header files once (here)
 // do not include headers in header files (ever).
 
+
+#pragma once
+
+
 // C++ headers
 #include <chrono>
 #include <fstream>
@@ -20,6 +24,11 @@
 #include <io.h>
 
 #include "lib/stb_image.h"
+
+
+
+
+
 
 // header for AVX, and every technology before it.
 // if your CPU does not support this (unlikely), include the appropriate header instead.
@@ -1223,3 +1232,20 @@ public:
 };
 
 // EOF
+
+#include "myapp.h"
+#include "Ray.h"
+
+#include "Material.h"
+#include "Primitive.h"
+#include "Sphere.h"
+#include "Plane.h"
+
+#include "AreaLight.h"
+
+#include "Intersection.h"
+
+#include "Pathtrace.h"
+
+//#include "WhittedTrace.h"
+//#include "Light.h"

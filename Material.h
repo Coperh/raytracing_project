@@ -1,8 +1,4 @@
 #pragma once
-#include "myapp.h"
-
-
-
 
 class Material 
 {
@@ -12,7 +8,8 @@ public:
 	{
 		diffuse,
 		reflect,
-		refract
+		refract,
+		light
 	};
 
 

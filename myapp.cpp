@@ -1,17 +1,7 @@
 #include "precomp.h"
-#include "myapp.h"
-#include "Sphere.h"
-#include "Plane.h"
-#include "Material.h"
-#include "WhittedTrace.h"
-#include "Light.h"
-#include <chrono>
 
 
 using namespace std::chrono;
-
-
-
 
 
 TheApp* CreateApp() { return new MyApp(); }
@@ -51,26 +41,31 @@ float3 dir8[] =
 
 
 int num_light;
-Light lightsources[] = { 
-	Light(float3(-5, -10, 0), 0.5),
-	Light(float3(5, -10, 0), 0.5) };
+Primitive* lights[] = {
+	new Sphere(float3(-5, -10, 0), 2, Material(Material::Type::light, float3(0, 255,0), 0.8))
+};
 
+
+/*Light pointLights[] = {
+	//Light(float3(-5, -10, 0), 0.5),
+	Light(float3(5, -10, 0), 0.5) };
+*/
 
 int num_prim;
 Primitive* primitives[] = {
 
-	new Plane(float3(0, 0, 10), float3(0, 0, 1), Material(Material::Type::diffuse, float3(255, 0, 255),1)),// backwall
-	new Plane(float3(10, 0, 0), float3(1, 0, 0), Material(Material::Type::diffuse, float3(200, 200, 200),1)), // right wall
-	new Plane(float3(-10, 0, 0), float3(-1, 0, 0), Material(Material::Type::diffuse, float3(255, 0, 0),1)),// left wall
+	//new Plane(float3(0, 0, 10), float3(0, 0, 1), Material(Material::Type::diffuse, float3(255, 0, 255),1)),// backwall
+	//new Plane(float3(10, 0, 0), float3(1, 0, 0), Material(Material::Type::diffuse, float3(200, 200, 200),1)), // right wall
+	//new Plane(float3(-10, 0, 0), float3(-1, 0, 0), Material(Material::Type::diffuse, float3(255, 0, 0),1)),// left wall
 
 	//new Plane(float3(0, 0, -10), float3(0, 0, -1), Material(Material::Type::diffuse, float3(0, 255, 255),1)),// backwall
 
-	new Plane(float3(0, 10, 0), float3(0, 1, 0), Material(Material::Type::reflect, float3(255, 255,0),0.5), true), //floor
+	new Plane(float3(0, 10, 0), float3(0, 1, 0), Material(Material::Type::diffuse, float3(255, 255,0),0.5), true), //floor
 
 	//new Plane(float3(0, 0, 10), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window
 	//new Plane(float3(0, 0, 12), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window takes to long to render
 
-	new Sphere(float3(0, 0, 5), 2, Material(Material::Type::refract, float3(0, 255,0), 0.5))
+	new Sphere(float3(0, 0, 5), 2, Material(Material::Type::diffuse, float3(0, 255,0), 0.8))
 	//new Sphere(float3(0, 0, 5), 2, Material(Material::Type::diffuse, float3(0,0 ,255), 1))
 };
 
@@ -82,6 +77,9 @@ Primitive* primitives[] = {
 //Sphere(float3(-50, 50, 100), 10, Material(Material::Type::diffuse, float3(0, 0, 255))),
 
 
+
+
+int frames_rendered;
 
 
 int frame_count = 0;
@@ -191,7 +189,7 @@ void MyApp::Init()
 
 	num_prim = sizeof(primitives) / sizeof(primitives[0]);
 
-	num_light = sizeof(lightsources) / sizeof(lightsources[0]);
+	num_light = sizeof(lights) / sizeof(lights);
 
 
 	printf("Scene with %d primitives and %d lights\n", num_prim, num_light);
@@ -219,17 +217,17 @@ void MyApp::Init()
 void MyApp::Tick( float deltaTime )
 {
 
+	frames_rendered++;
+
+
 
 	milliseconds start = duration_cast<milliseconds>(
 		system_clock::now().time_since_epoch()
 		);
 
 
-	//time_t start, end;
-	//time(&start);
-
 	// clear the screen to black
-	screen->Clear( 0 );
+	//screen->Clear( 0 );
 
 	
 
@@ -246,21 +244,31 @@ void MyApp::Tick( float deltaTime )
 			int local_y = y * aa_res + sub_y;
 			int local_x = x * aa_res + sub_x;
 
-			average_colour = average_colour + Trace(primitives, num_prim, lightsources, num_light, AntiAliasRays[local_y][local_x], 0);
+
+			average_colour = average_colour + Pathtrace(primitives, num_prim, lights, num_light, AntiAliasRays[local_y][local_x], 0);
+
+
+			//average_colour = average_colour + WhittedTrace(primitives, num_prim, pointLights, num_light, AntiAliasRays[local_y][local_x], 0);
 		}
 
 
-
-
-		frame[y][x] = average_colour / num_subpix;
+		frame[y][x] += average_colour / num_subpix;
 	
+
+			
+
+
 
 		//frame[y][x] = Trace(lightsource, primitives, num_prim, AntiAliasRays[y][x]);
 		//printf("Col %f %f %f\n", frame[y][x].x, frame[y][x].y, frame[y][x].z);
 
 
 		
-		const float r = frame[y][x].x, g = frame[y][x].y, b = frame[y][x].z;
+		const float r = frame[y][x].x / frames_rendered, g = frame[y][x].y / frames_rendered, b = frame[y][x].z / frames_rendered;
+
+
+
+
 		const uint ir = min((uint)(r * 255), 255u);
 		const uint ig = min((uint)(g * 255), 255u);
 		const uint ib = min((uint)(b * 255), 255u);

@@ -1,5 +1,4 @@
 #pragma once
-#include "myapp.h"
 
 class Light {
 
@@ -13,12 +12,6 @@ public:
 	
 	}
 
-
-
 	float3 pos;
 	float intensity;
-
-
-
-
 };

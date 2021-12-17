@@ -1,6 +1,4 @@
 #pragma once
-#include "myapp.h"
-#include "Primitive.h"
 
 class Plane: public Primitive {
 

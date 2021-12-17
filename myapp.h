@@ -22,12 +22,4 @@ public:
 };
 
 
-struct Ray {
-	float3 O;
-	float3 D;
-	float t;
-};
-
-
-
 } // namespace Tmpl8

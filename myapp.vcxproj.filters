@@ -5,6 +5,9 @@
       <Filter>template</Filter>
     </ClCompile>
     <ClCompile Include="myapp.cpp" />
+    <ClCompile Include="Pathtrace.cpp" />
+    <ClCompile Include="Sphere.cpp" />
+    <ClCompile Include="Intersection.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="template\common.h">
@@ -24,6 +27,9 @@
     <ClInclude Include="Light.h" />
     <ClInclude Include="Primitive.h" />
     <ClInclude Include="Intersection.h" />
+    <ClInclude Include="Pathtrace.h" />
+    <ClInclude Include="Ray.h" />
+    <ClInclude Include="AreaLight.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="template\LICENSE">

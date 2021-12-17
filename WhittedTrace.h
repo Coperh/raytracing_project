@@ -8,8 +8,9 @@
 using std::pow;
 
 
-const float EPSILON = 1e-4;
+const float EPSILON = 1e-3;
 
+const float3 sky(0, 0, 0);
 
 
 
@@ -73,11 +74,9 @@ float DirectIllumination(Primitive * objects[], int n, Light lights[], int m, fl
 
 
 
-float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int bounce) {
-
+float3 WhittedTrace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int bounce) {
 
 	bounce++;
-
 
 	float3 N;
 	float3 I;
@@ -145,15 +144,18 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 				return colour * DirectIllumination(objects, n, lights, m, I, N);
 
 			if (s == 1) 
-				return Trace(objects, n, lights, m, reflect, bounce);
+				return WhittedTrace(objects, n, lights, m, reflect, bounce);
 			else {
 
-				colour = (s * Trace(objects, n, lights, m, reflect, bounce)) +
+				colour = (s * WhittedTrace(objects, n, lights, m, reflect, bounce)) +
 					(d * colour * DirectIllumination(objects, n, lights, m, I, N));
 				return colour;
 			}
 			 
 		}
+
+
+		// not fully working
 
 		else if (mat.type == Material::Type::refract)
 		{
@@ -184,6 +186,9 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 			if (k >= 0)
 			{
 
+				//printf("kay yay\n");
+				
+
 				float3 T = mat.index * ray.D + N * (mat.index * cosine - sqrtf(k));
 
 				Ray refracted = { I + T * EPSILON, T, -1 };
@@ -191,14 +196,14 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 
 				float3 beer = -(mat.colour * ray.t);
 
-				//beer = float3(1, 1, 1);
+				beer = float3(1, 1, 1);
 
 
-				refracted_colour = Trace(objects, n, lights, m, refracted, bounce);
+				refracted_colour = WhittedTrace(objects, n, lights, m, refracted, bounce);
 
-				refracted_colour.x = pow(refracted_colour.x, beer.x);
-				refracted_colour.y = pow(refracted_colour.y, beer.y);
-				refracted_colour.z = pow(refracted_colour.x, beer.z);
+				//refracted_colour.x = pow(refracted_colour.x, beer.x);
+				//refracted_colour.y = pow(refracted_colour.y, beer.y);
+				//refracted_colour.z = pow(refracted_colour.x, beer.z);
 			
 
 			}
@@ -211,7 +216,7 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 			if (s == 1) return refracted_colour;
 
 
-			float3 colour = (s * refracted_colour) * (d * Trace(objects, n, lights, m, reflect, bounce));
+			float3 colour = (s * refracted_colour) * (d * WhittedTrace(objects, n, lights, m, reflect, bounce));
 
 
 
@@ -230,7 +235,7 @@ float3 Trace(Primitive* objects[], int n, Light  lights[], int m, Ray ray, int b
 	}
 
 
-	return float3(0, 0, 0);
+	return sky;
 }
 
 
