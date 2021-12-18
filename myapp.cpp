@@ -32,8 +32,8 @@ mat4 directions[] = {
 
 
 int num_light;
-Primitive* lights[] = {
-	new Sphere(float3(5, 10, 0), 2, Material(Material::Type::light, float3(0, 255,0), 0.8))
+AreaLight* lights[] = {
+	new AreaLight(float3(5, 10, 0), float3(0, -1, 0), 2, Material(Material::Type::light, float3(0, 255,0), 0.8))
 };
 
 
@@ -56,9 +56,9 @@ Primitive* primitives[] = {
 	//new Plane(float3(0, 0, 10), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window
 	//new Plane(float3(0, 0, 12), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window takes to long to render
 
-	new Sphere(float3(0, 0, 5), 2, Material(Material::Type::diffuse, float3(0, 255,0), 0.8)),
-	new Sphere(float3(5, 0, 0), 2, Material(Material::Type::diffuse, float3(0, 0, 255), 0.8)),
-	new Sphere(float3(-5, 0, 0), 2, Material(Material::Type::diffuse, float3(255, 0, 0), 0.8)),
+	new Sphere(float3(0, 0, 20), 2, Material(Material::Type::diffuse, float3(0, 255,0), 0.8)),
+	new Sphere(float3(20, 0, 0), 2, Material(Material::Type::diffuse, float3(0, 0, 255), 0.8)),
+	new Sphere(float3(20, 0, 0), 2, Material(Material::Type::diffuse, float3(255, 0, 0), 0.8)),
 	//new Sphere(float3(0, 0, 5), 2, Material(Material::Type::diffuse, float3(0,0 ,255), 1))
 };
 
@@ -137,17 +137,12 @@ void ResetFrame()
 
 	for (int y = 0; y < AA_Height; y++) for (int x = 0; x < AA_Width; x++) {
 
-	
-
 		frame[y][x].x = 0;
 		frame[y][x].y = 0;
 		frame[y][x].z = 0;
 	}
 
-
 }
-
-
 
 
 
@@ -190,7 +185,7 @@ void MyApp::Init()
 {
 
 	printf("Anti-aliassing: %d, Subpixels: %d\n", aa_res, num_subpix);
-
+	 
 	printf("Screen res: %d X %d\n", SCRWIDTH, SCRHEIGHT);
 
 	printf("AA Res: %d X %d\n", AA_Width, AA_Height);

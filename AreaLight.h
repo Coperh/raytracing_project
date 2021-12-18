@@ -4,7 +4,7 @@
 
 class AreaLight: public Primitive {
 
-	AreaLight(float3 position, float3 normal, float width, Material material) {
+	AreaLight(float3 position, float3 normal, float width, Material material, float intensity) {
 
 
 	this->pos = position;
@@ -14,10 +14,15 @@ class AreaLight: public Primitive {
 
 	this->width = width;
 
+	this->mat.intensity = intensity;
 
-
+	translation = mat4::Translate(normal - local_normal);
 
 	}
+
+
+
+
 
 	float3 N;
 	float3 pos;
@@ -25,13 +30,32 @@ class AreaLight: public Primitive {
 	Material mat;
 	float width;
 
+	mat4 translation;
 
 
 
-	float* GenPoints(int n) 
+
+	void GenPoints(float3 * points, int n)
 	{
-	
 
+		// WangHash
+		uint seed = 10;
+
+		float xmin = pos.x - width / 2;
+		float xmax = pos.x + width / 2;
+		float ymin = pos.y - width / 2;
+		float ymax = pos.y + width / 2;
+
+
+		for (int i = 0; i < n; i++) {
+			
+			float randx = RandomFloat() * (xmax -xmin) + xmin;
+			float randy = RandomFloat() * (ymax - ymin) + ymin;
+			
+			float3 new_float = translation.TransformPoint(float3(randx, randy, 0));
+		
+			points[i] = new_float;
+		}
 	
 	
 	}
@@ -51,6 +75,9 @@ class AreaLight: public Primitive {
 		return N;
 	};
 
+private:
+
+	float3 const local_normal{ 0.0,0.0f,1.0f };
 
 };
 
