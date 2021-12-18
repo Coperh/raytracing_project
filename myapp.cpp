@@ -8,7 +8,7 @@ TheApp* CreateApp() { return new MyApp(); }
 
 
 static float3 E(0, 0, 0), V(0, 0, 1);
-static float d = 0.5;
+static float d = 1;
 
 
 float3 frame[SCRHEIGHT][SCRWIDTH];
@@ -24,25 +24,16 @@ Ray AntiAliasRays[AA_Height][AA_Width];
 
 
 
+mat4 directions[] = {
+	mat4::RotateY(-PI / 4), // left
+	mat4::RotateY(PI / 4), // right
+	};
 
-int current_dir = 0;
-
-float3 dir8[] =
-{
-	float3(0,0,1),
-	float3(1,0,1),
-	float3(1,0,0),
-	float3(1,0,-1),
-	float3(0,0,-1),
-	float3(-1,0,-1),
-	float3(-1,0,0),
-	float3(-1,0,1)
-};
 
 
 int num_light;
 Primitive* lights[] = {
-	new Sphere(float3(-5, -10, 0), 2, Material(Material::Type::light, float3(0, 255,0), 0.8))
+	new Sphere(float3(5, 10, 0), 2, Material(Material::Type::light, float3(0, 255,0), 0.8))
 };
 
 
@@ -60,15 +51,16 @@ Primitive* primitives[] = {
 
 	//new Plane(float3(0, 0, -10), float3(0, 0, -1), Material(Material::Type::diffuse, float3(0, 255, 255),1)),// backwall
 
-	new Plane(float3(0, 10, 0), float3(0, 1, 0), Material(Material::Type::diffuse, float3(255, 255,0),0.5), true), //floor
+	new Plane(float3(0, -10, 0), float3(0, 1, 0), Material(Material::Type::diffuse, float3(255, 255,0),0.5), true), //floor
 
 	//new Plane(float3(0, 0, 10), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window
 	//new Plane(float3(0, 0, 12), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window takes to long to render
 
-	new Sphere(float3(0, 0, 5), 2, Material(Material::Type::diffuse, float3(0, 255,0), 0.8))
+	new Sphere(float3(0, 0, 5), 2, Material(Material::Type::diffuse, float3(0, 255,0), 0.8)),
+	new Sphere(float3(5, 0, 0), 2, Material(Material::Type::diffuse, float3(0, 0, 255), 0.8)),
+	new Sphere(float3(-5, 0, 0), 2, Material(Material::Type::diffuse, float3(255, 0, 0), 0.8)),
 	//new Sphere(float3(0, 0, 5), 2, Material(Material::Type::diffuse, float3(0,0 ,255), 1))
 };
-
 
 
 //Sphere(float3(50, 50, 100), 10, Material(Material::Type::diffuse, float3(255, 0, 0))),
@@ -81,25 +73,48 @@ Primitive* primitives[] = {
 
 int frames_rendered;
 
-
 int frame_count = 0;
 
+
+
+
+
+void RotateWindow(mat4 * dir){
+	
+	V = dir->TransformVector(V);
+
+	float3 center = E + d * V;
+	
+	mat4* direction;
+
+
+	printf("Center: %f %f %f\n", center.x, center.y, center.z);
+	printf("Dir %f %f %f\n", V.x, V.y, V.z);
+
+
+	for (int y = 0; y < AA_Height; y++) for (int x = 0; x < AA_Width; x++) {
+
+		AntiAliasRays[y][x].D = dir->TransformPoint(AntiAliasRays[y][x].D);
+		AntiAliasRays[y][x].O = dir->TransformPoint(AntiAliasRays[y][x].O);
+		AntiAliasRays[y][x].t = -1;
+	}
+
+}
 
 
 
 void CalculateWindow() 
 {
 
-	V = dir8[current_dir];
-
 	float3 center = E + d * V;
 
 	printf("Center: %f %f %f\n", center.x, center.y, center.z);
-	printf("Dir %d: %f %f %f\n", current_dir, V.x, V.y, V.z);
+	printf("Dir %f %f %f\n", V.x, V.y, V.z);
 
-	float3 P0 = center + float3(-1, -1, 0);
-	float3 P1 = center + float3(1, -1, 0);
-	float3 P2 = center + float3(-1, 1, 0);
+	// flippde to get better coords
+	float3 P0 = center + float3(-1, 1, 0);
+	float3 P1 = center + float3(1, 1, 0);
+	float3 P2 = center + float3(-1, -1, 0);
 
 	for (int y = 0; y < AA_Height; y++) for (int x = 0; x < AA_Width; x++) {
 
@@ -115,6 +130,23 @@ void CalculateWindow()
 
 }
 
+void ResetFrame() 
+{
+
+	frames_rendered = 0;
+
+	for (int y = 0; y < AA_Height; y++) for (int x = 0; x < AA_Width; x++) {
+
+	
+
+		frame[y][x].x = 0;
+		frame[y][x].y = 0;
+		frame[y][x].z = 0;
+	}
+
+
+}
+
 
 
 
@@ -126,39 +158,21 @@ void MyApp::KeyUp(int key) {
 	// left (left arrow + A)
 	if (key == 263 || key == 65) {
 		
-		current_dir --;
-
-		if (current_dir < 0) current_dir = 7;
-
-		CalculateWindow();
-
+		RotateWindow(&directions[0]);
+		ResetFrame();
 
 	}
 
 	// right (right arrow + D)
 	if (key == 262 || key == 68) {
-		/*
-			mat4 right = mat4::RotateZ(45);
-
-			quat temp;
-			temp.fromMatrix(right);
-
-			V = temp.rotateVector(V);
-			*/
-		current_dir ++;
-
-		if (current_dir > 7) current_dir = 0;
 		
-
-
-		CalculateWindow();
-
-
+		RotateWindow(&directions[1]);
+		ResetFrame();
 	}
 
 };
 void MyApp::KeyDown(int key) {
-	printf("Key%d down\n", key);
+	printf("Key %d down\n", key);
 
 	// left (left arrow + A)
 	if (key == 263 || key == 65);
@@ -186,25 +200,29 @@ void MyApp::Init()
 
 
 
-
 	num_prim = sizeof(primitives) / sizeof(primitives[0]);
-
 	num_light = sizeof(lights) / sizeof(lights);
-
 
 	printf("Scene with %d primitives and %d lights\n", num_prim, num_light);
 
 
 
-	//primitives[0]->test();
+	float3 test_f(1, 1, 4);
 
-	/*
-	for (int i = 0; i < num_prim; i++) {
-	
-		printf("Shape %d, is %d\n", i, primitives[i]->mat.is_checker);
-	
-	}
-	*/
+
+	printf("Before: %f, %f, %f\n", test_f.x, test_f.y, test_f.z);
+
+
+	mat4 rotation_matrix = mat4::RotateX(PI);
+
+
+	printf("%f \n", rotation_matrix.cell[5]);
+
+
+	test_f = rotation_matrix.TransformVector(test_f);
+
+	printf("After: %f, %f, %f\n", test_f.x, test_f.y, test_f.z);
+
 
 	printf("Initialization complete\n");
 }
@@ -216,10 +234,8 @@ void MyApp::Init()
 // -----------------------------------------------------------
 void MyApp::Tick( float deltaTime )
 {
-
+	
 	frames_rendered++;
-
-
 
 	milliseconds start = duration_cast<milliseconds>(
 		system_clock::now().time_since_epoch()
