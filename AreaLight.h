@@ -4,7 +4,8 @@
 
 class AreaLight: public Primitive {
 
-	AreaLight(float3 position, float3 normal, float width, Material material, float intensity) {
+public:
+	AreaLight(float3 position, float3 normal, float width, Material material) {
 
 
 	this->pos = position;
@@ -13,8 +14,6 @@ class AreaLight: public Primitive {
 	this->N = normal;
 
 	this->width = width;
-
-	this->mat.intensity = intensity;
 
 	translation = mat4::Translate(normal - local_normal);
 

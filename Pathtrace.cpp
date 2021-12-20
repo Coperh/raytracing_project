@@ -3,7 +3,7 @@
 
 
 
-void Pathtrace::DirectIllumination(Primitive* objects[], int n, Primitive* lights[], int m, float3 interseciton, float3 normal) 
+void Pathtrace::DirectIllumination(Primitive* objects[], int n, AreaLight* lights[], int m, float3 interseciton, float3 normal)
 {
 
 
@@ -14,7 +14,7 @@ void Pathtrace::DirectIllumination(Primitive* objects[], int n, Primitive* light
 
 
 
-float3 Pathtrace(Primitive* objects[], int n, Primitive* lights[], int m, Ray ray, int bounce) {
+float3 Pathtrace(Primitive* objects[], int n, AreaLight* lights[], int m, Ray ray, int bounce) {
 
 
 	bounce++;
