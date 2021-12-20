@@ -17,6 +17,8 @@ public:
 
 	translation = mat4::Translate(normal - local_normal);
 
+	area = width * width;
+
 	}
 
 
@@ -28,6 +30,7 @@ public:
 	//float r2;
 	Material mat;
 	float width;
+	float area;
 
 	mat4 translation;
 

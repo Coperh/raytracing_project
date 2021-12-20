@@ -1233,6 +1233,9 @@ public:
 
 // EOF
 
+const float EPSILON = 1e-3;
+
+
 #include "myapp.h"
 #include "Ray.h"
 

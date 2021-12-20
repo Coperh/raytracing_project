@@ -8,7 +8,7 @@ TheApp* CreateApp() { return new MyApp(); }
 
 
 static float3 E(0, 0, 0), V(0, 0, 1);
-static float d = 1;
+static float d = 2;
 
 
 float3 frame[SCRHEIGHT][SCRWIDTH];
@@ -33,7 +33,7 @@ mat4 directions[] = {
 
 int num_light;
 AreaLight* lights[] = {
-	new AreaLight(float3(5, 10, 0), float3(0, -1, 0), 2, Material(Material::Type::light, float3(0, 255,0), 0.8))
+	new AreaLight(float3(5, 10, 0), float3(0, -1, 0), 2, Material(Material::Type::light, float3(200, 200,200), 0.1))
 };
 
 
