@@ -31,9 +31,13 @@ mat4 directions[] = {
 
 
 
+
+// should be floating point colour values
+
+
 int num_light;
 AreaLight* lights[] = {
-	new AreaLight(float3(5, 10, 0), float3(0, -1, 0), 2, Material(Material::Type::light, float3(200, 200,200), 0.1))
+	new AreaLight(float3(5, 10, 0), float3(0, -1, 0), 2, Material(Material::Type::light, float3(1,1,1), 1000))
 };
 
 
@@ -51,14 +55,14 @@ Primitive* primitives[] = {
 
 	//new Plane(float3(0, 0, -10), float3(0, 0, -1), Material(Material::Type::diffuse, float3(0, 255, 255),1)),// backwall
 
-	new Plane(float3(0, -10, 0), float3(0, 1, 0), Material(Material::Type::diffuse, float3(255, 255,0),0.5), true), //floor
+	new Plane(float3(0, -10, 0), float3(0, 1, 0), Material(Material::Type::diffuse, float3(1, 1,0),0.5), true), //floor
 
 	//new Plane(float3(0, 0, 10), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window
 	//new Plane(float3(0, 0, 12), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window takes to long to render
 
-	new Sphere(float3(0, 0, 20), 2, Material(Material::Type::diffuse, float3(0, 255,0), 0.8)),
-	new Sphere(float3(20, 0, 0), 2, Material(Material::Type::diffuse, float3(0, 0, 255), 0.8)),
-	new Sphere(float3(20, 0, 0), 2, Material(Material::Type::diffuse, float3(255, 0, 0), 0.8)),
+	new Sphere(float3(0, 0, 20), 2, Material(Material::Type::diffuse, float3(1, 1,0), 0.8)),
+	new Sphere(float3(20, 0, 0), 2, Material(Material::Type::diffuse, float3(0, 0, 1), 0.8)),
+	new Sphere(float3(20, 0, 0), 2, Material(Material::Type::diffuse, float3(1, 0, 0), 0.8)),
 	//new Sphere(float3(0, 0, 5), 2, Material(Material::Type::diffuse, float3(0,0 ,255), 1))
 };
 
@@ -71,10 +75,8 @@ Primitive* primitives[] = {
 
 
 
-int frames_rendered;
-
 int frame_count = 0;
-
+int frames_rendered;
 
 
 
@@ -132,8 +134,7 @@ void CalculateWindow()
 
 void ResetFrame() 
 {
-
-	frames_rendered = 0;
+	int frames_rendered = 0;
 
 	for (int y = 0; y < AA_Height; y++) for (int x = 0; x < AA_Width; x++) {
 
@@ -193,6 +194,7 @@ void MyApp::Init()
 
 	CalculateWindow();
 
+	ResetFrame();
 
 
 	num_prim = sizeof(primitives) / sizeof(primitives[0]);
@@ -256,27 +258,22 @@ void MyApp::Tick( float deltaTime )
 			int local_x = x * aa_res + sub_x;
 
 
-			average_colour = average_colour + Pathtrace(primitives, num_prim, lights, num_light, AntiAliasRays[local_y][local_x], 0);
-
+			average_colour += Pathtrace(primitives, num_prim, lights, num_light, AntiAliasRays[local_y][local_x], 0);
 
 			//average_colour = average_colour + WhittedTrace(primitives, num_prim, pointLights, num_light, AntiAliasRays[local_y][local_x], 0);
 		}
 
 
+
+
 		frame[y][x] += average_colour / num_subpix;
-	
-
-			
-
-
-
-		//frame[y][x] = Trace(lightsource, primitives, num_prim, AntiAliasRays[y][x]);
-		//printf("Col %f %f %f\n", frame[y][x].x, frame[y][x].y, frame[y][x].z);
-
 
 		
 		const float r = frame[y][x].x / frames_rendered, g = frame[y][x].y / frames_rendered, b = frame[y][x].z / frames_rendered;
 
+
+		//float3 test_col(1,1,0);
+		//const float r = test_col.x, g = test_col.y, b = test_col.z ;
 
 
 
@@ -285,7 +282,9 @@ void MyApp::Tick( float deltaTime )
 		const uint ib = min((uint)(b * 255), 255u);
 		screen->Plot(x, y, (ir << 16) + (ig << 8) + ib);
 
-		//printf("Done %d %d\n", y, x);
+
+
+		//if(ib == 255) printf("ib %d, in %f \n", ib, b);
 	}
 
 
@@ -299,7 +298,7 @@ void MyApp::Tick( float deltaTime )
 
 
 
-	frame_count++;
+
 
 }
 

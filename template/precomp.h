@@ -1233,7 +1233,7 @@ public:
 
 // EOF
 
-const float EPSILON = 1e-3;
+const float EPSILON = 1e-2;
 
 
 #include "myapp.h"

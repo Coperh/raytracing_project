@@ -6,6 +6,11 @@
 
 const int num_samples = 1;
 
+const float3 black(1e-4, 1e-4, 1e-2);
+const float3 white(1, 1, 1);
+
+
+
 
 
 float3 Pathtrace::DirectIllumination(Primitive* objects[], int n, AreaLight* lights[], int m, float3 diffuse, float3 interseciton, float3 normal)
@@ -53,7 +58,7 @@ float3 Pathtrace::DirectIllumination(Primitive* objects[], int n, AreaLight* lig
 					float solidAngle = (cos_o * lights[i]->area) / (distance * distance);
 				
 
-					colour_from_light += BRDF * m *  solidAngle * cos_i * lights[i]->mat.colour  * lights[i]->mat.intensity;
+					colour_from_light = BRDF * m * solidAngle * cos_i * lights[i]->mat.colour  *lights[i]->mat.intensity;
 				}
 			}
 		}
@@ -81,38 +86,36 @@ float3 Pathtrace(Primitive* objects[], int n, AreaLight* lights[], int m, Ray ra
 
 
 	if (object < 0)
-		return float3(0, 0, 0);
+		return black;
 
 	Material mat = objects[object]->mat;
+
+
+	colour = mat.colour;
+
 
 	if (mat.is_checker) {
 		int check = int(I.x) + int(I.z);
 		float quad = I.x * I.z;
 		if (check % 2 == 0){
 			
-			if (quad > 0) colour = float3(255, 255, 255);
-			else colour = mat.colour;
+			if (!(quad > 0)) colour = white;
 		}
 		else {
-			if (quad > 0)
-				colour = mat.colour;
-			else colour = float3(255, 255, 255);
+			if (quad > 0) colour = white;
 		}
-	}
-	else {
-
-		colour = mat.colour;
 	}
 
 
 
 	// need to intersect light aswell
-	if (mat.type == Material::Type::diffuse) {
+	if (mat.type == Material::Type::light) {
+		colour *= mat.intensity;
+	}
+	else if (mat.type == Material::Type::diffuse) {
 	
 		colour = Pathtrace::DirectIllumination(objects,  n, lights, m, colour, I, N);
 	}
-
-
 
 
 	return colour;
