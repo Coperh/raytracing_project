@@ -8,7 +8,6 @@
 using std::pow;
 
 
-const float EPSILON = 1e-3;
 
 const float3 sky(0, 0, 0);
 

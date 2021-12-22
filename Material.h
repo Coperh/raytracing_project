@@ -16,14 +16,14 @@ public:
 
 	Material() {};
 
-	Material(Type type, float3 colour, float intensity) {
+	Material(Type type, float3 colour, float intensity, bool is_checker = false) {
 	
 		this->type = type;
 		this->colour = colour;
 
 		this->intensity = intensity;
 
-		this->is_checker = false;
+		this->is_checker = is_checker;
 	}
 
 

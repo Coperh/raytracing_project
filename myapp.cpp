@@ -7,7 +7,7 @@ using namespace std::chrono;
 TheApp* CreateApp() { return new MyApp(); }
 
 
-static float3 E(0, 0, 0), V(0, 0, 1);
+static float3 E(0, 10, 0), V(0, -0.2, 0.8);
 static float d = 2;
 
 
@@ -37,7 +37,7 @@ mat4 directions[] = {
 
 int num_light;
 AreaLight* lights[] = {
-	new AreaLight(float3(5, 10, 0), float3(0, -1, 0), 2, Material(Material::Type::light, float3(1,1,1), 1000))
+	new AreaLight(float3(0, 50, 0), float3(0, -1, 0), 10, Material(Material::Type::light, float3(1,1,1), 100))
 };
 
 
@@ -49,28 +49,29 @@ AreaLight* lights[] = {
 int num_prim;
 Primitive* primitives[] = {
 
-	//new Plane(float3(0, 0, 10), float3(0, 0, 1), Material(Material::Type::diffuse, float3(255, 0, 255),1)),// backwall
+	new Plane(float3(0, 0, 100), float3(0, 0, -1), Material(Material::Type::diffuse, float3(1, 0, 1),1, true)),// backwall
 	//new Plane(float3(10, 0, 0), float3(1, 0, 0), Material(Material::Type::diffuse, float3(200, 200, 200),1)), // right wall
 	//new Plane(float3(-10, 0, 0), float3(-1, 0, 0), Material(Material::Type::diffuse, float3(255, 0, 0),1)),// left wall
 
 	//new Plane(float3(0, 0, -10), float3(0, 0, -1), Material(Material::Type::diffuse, float3(0, 255, 255),1)),// backwall
 
-	new Plane(float3(0, -10, 0), float3(0, 1, 0), Material(Material::Type::diffuse, float3(1, 1,0),0.5), true), //floor
+	new Plane(float3(0, 0, 0), float3(0, 1, 0), Material(Material::Type::diffuse, float3(1e-1, 1e-1,1e-1),0.5, true)), //floor
 
 	//new Plane(float3(0, 0, 10), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window
 	//new Plane(float3(0, 0, 12), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window takes to long to render
 
-	new Sphere(float3(0, 0, 20), 2, Material(Material::Type::diffuse, float3(1, 1,0), 0.8)),
-	new Sphere(float3(20, 0, 0), 2, Material(Material::Type::diffuse, float3(0, 0, 1), 0.8)),
-	new Sphere(float3(20, 0, 0), 2, Material(Material::Type::diffuse, float3(1, 0, 0), 0.8)),
+	new Sphere(float3(0, 6, 25), 4, Material(Material::Type::diffuse, float3(5e-1, 1e-1,1e-1), 1)),
+	new Sphere(float3(0, -2, 25), 2, Material(Material::Type::diffuse, float3(8e-1, 8e-1,8e-1), 1)),
+	new Sphere(float3(10,6, 25), 4, Material(Material::Type::reflect, float3(0, 0, 0), 1)),
+	new Sphere(float3(10,-2, 25), 2, Material(Material::Type::diffuse, float3(8e-1, 8e-1,8e-1), 1)),
+	new Sphere(float3(-10,6, 25), 4, Material(Material::Type::diffuse, float3(5e-1, 5e-1,1e-1), 1)),
+	new Sphere(float3(-10,-2, 25), 2, Material(Material::Type::diffuse, float3(8e-1, 8e-1,8e-1), 1)),
+
+
 	//new Sphere(float3(0, 0, 5), 2, Material(Material::Type::diffuse, float3(0,0 ,255), 1))
 };
 
 
-//Sphere(float3(50, 50, 100), 10, Material(Material::Type::diffuse, float3(255, 0, 0))),
-//Sphere(float3(50, -50, 100), 10, Material(Material::Type::diffuse, float3(0, 255, 0))),
-//Sphere(float3(-50, -50, 100), 10, Material(Material::Type::diffuse, float3(0, 255, 0))),
-//Sphere(float3(-50, 50, 100), 10, Material(Material::Type::diffuse, float3(0, 0, 255))),
 
 
 
@@ -134,7 +135,7 @@ void CalculateWindow()
 
 void ResetFrame() 
 {
-	int frames_rendered = 0;
+	frames_rendered = 0;
 
 	for (int y = 0; y < AA_Height; y++) for (int x = 0; x < AA_Width; x++) {
 
@@ -258,7 +259,7 @@ void MyApp::Tick( float deltaTime )
 			int local_x = x * aa_res + sub_x;
 
 
-			average_colour += Pathtrace(primitives, num_prim, lights, num_light, AntiAliasRays[local_y][local_x], 0);
+			average_colour += Sample(primitives, num_prim, lights, num_light, AntiAliasRays[local_y][local_x], 0);
 
 			//average_colour = average_colour + WhittedTrace(primitives, num_prim, pointLights, num_light, AntiAliasRays[local_y][local_x], 0);
 		}
@@ -294,7 +295,7 @@ void MyApp::Tick( float deltaTime )
 
 	double time = (end - start).count()/1000;
 
-	printf("Frame %d rendered in %f seconds\n", frame_count, time);
+	printf("Frame %d rendered in %f seconds\n", frames_rendered, time);
 
 
 

@@ -6,14 +6,15 @@
 
 const int num_samples = 1;
 
-const float3 black(1e-4, 1e-4, 1e-2);
+const float3 sky(0.039, 0.407, 0.741);
+const float3 black(0, 0, 0);
 const float3 white(1, 1, 1);
 
+const int checker_scale = 2;
 
 
 
-
-float3 Pathtrace::DirectIllumination(Primitive* objects[], int n, AreaLight* lights[], int m, float3 diffuse, float3 interseciton, float3 normal)
+float3 Pathtrace::DiffuseReflection(Primitive* objects[], int n, AreaLight* lights[], int m, float3 diffuse, float3 interseciton, float3 normal)
 {
 
 
@@ -34,6 +35,11 @@ float3 Pathtrace::DirectIllumination(Primitive* objects[], int n, AreaLight* lig
 		for (int j = 0; j < num_samples; j++) {
 
 
+
+			//printf("Rand: %f %f %f\n", randPoints[i].x, randPoints[i].y, randPoints[i].z);
+
+
+
 			float3 L = randPoints[i] - interseciton;
 
 
@@ -48,29 +54,32 @@ float3 Pathtrace::DirectIllumination(Primitive* objects[], int n, AreaLight* lig
 			float cos_o = dot(-L, lights[i]->N);
 			float cos_i = dot(L, normal);
 
-			if ( !((cos_o <= 0) || (cos_i <= 0)) ){
+			if (!((cos_o <= 0) || (cos_i <= 0))) {
 
 				Ray ray = { interseciton + L * EPSILON, L, distance };
 
-				if (!AnyIntersection(objects, n, ray)) {
-					
+				if (AnyIntersection(objects, n, ray)) {
+					colour += black;
+				}
+				else {
 					float3 BRDF = diffuse * INVPI;
 					float solidAngle = (cos_o * lights[i]->area) / (distance * distance);
-				
 
-					colour_from_light = BRDF * m * solidAngle * cos_i * lights[i]->mat.colour  *lights[i]->mat.intensity;
+
+					colour_from_light += BRDF * m * solidAngle * cos_i * lights[i]->mat.colour * lights[i]->mat.intensity;
 				}
 			}
+			else colour += black;
 		}
 
-		colour *= (colour_from_light / num_samples) ;
+		colour = (colour_from_light / num_samples) ;
 	}
 	return colour;
 }
 
 
 
-float3 Pathtrace(Primitive* objects[], int n, AreaLight* lights[], int m, Ray ray, int bounce) {
+float3 Sample(Primitive* objects[], int n, AreaLight* lights[], int m, Ray ray, int bounce) {
 
 
 	bounce++;
@@ -86,35 +95,56 @@ float3 Pathtrace(Primitive* objects[], int n, AreaLight* lights[], int m, Ray ra
 
 
 	if (object < 0)
-		return black;
+		return sky;
 
 	Material mat = objects[object]->mat;
+
+
+
+
+
+
+
+	if (mat.type == Material::Type::light) {
+		return mat.colour;
+	}
+
+	if (mat.type == Material::Type::reflect) {
+
+		float3 r = ReflectRay(ray.D, N);
+
+		Ray reflected = { I + r * EPSILON, r, -1 };
+
+		return Sample(objects, n, lights, m, reflected, bounce);
+
+	}
+
+
 
 
 	colour = mat.colour;
 
 
+
 	if (mat.is_checker) {
-		int check = int(I.x) + int(I.z);
-		float quad = I.x * I.z;
+
+
+		float3 scaled_pos = I / checker_scale;
+
+		int check = int(scaled_pos.x) + int(scaled_pos.y) + int(scaled_pos.z);
+
 		if (check % 2 == 0){
-			
-			if (!(quad > 0)) colour = white;
-		}
-		else {
-			if (quad > 0) colour = white;
+			colour = white;
 		}
 	}
 
 
 
 	// need to intersect light aswell
-	if (mat.type == Material::Type::light) {
-		colour *= mat.intensity;
-	}
-	else if (mat.type == Material::Type::diffuse) {
 	
-		colour = Pathtrace::DirectIllumination(objects,  n, lights, m, colour, I, N);
+	if (mat.type == Material::Type::diffuse) {
+	
+		colour = Pathtrace::DiffuseReflection(objects,  n, lights, m, colour, I, N);
 	}
 
 

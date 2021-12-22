@@ -13,11 +13,18 @@ public:
 	this->mat = material;
 	this->N = normal;
 
+
+
+
+
 	this->width = width;
+	this->halfwidth = this->width / 2;
 
-	translation = mat4::Translate(normal - local_normal);
+	this->translation = mat4::Translate(normal - local_normal);
 
-	area = width * width;
+	this->area = width * width;
+
+
 
 	}
 
@@ -27,9 +34,16 @@ public:
 
 	float3 N;
 	float3 pos;
+
+	float3 a;
+	float3 b;
+
+
+
 	//float r2;
 	Material mat;
 	float width;
+	float halfwidth;
 	float area;
 
 	mat4 translation;
@@ -39,29 +53,24 @@ public:
 
 	void GenPoints(float3 * points, int n)
 	{
-
 		// WangHash
 		uint seed = 10;
 
-		float xmin = pos.x - width / 2;
-		float xmax = pos.x + width / 2;
-		float ymin = pos.y - width / 2;
-		float ymax = pos.y + width / 2;
-
+		float xmin = pos.x - halfwidth;
+		float xmax = pos.x + halfwidth;
+		float zmin = pos.z - halfwidth;
+		float zmax = pos.z + halfwidth;
 
 		for (int i = 0; i < n; i++) {
 			
 			float randx = RandomFloat() * (xmax -xmin) + xmin;
-			float randy = RandomFloat() * (ymax - ymin) + ymin;
+			float randz = RandomFloat() * (zmax - zmin) + zmin;
 			
-			float3 new_float = translation.TransformPoint(float3(randx, randy, 0));
+			float3 new_float(float3(randx, pos.y , randz));
 		
 			points[i] = new_float;
 		}
-	
-	
 	}
-
 
 
 	float Intersect(Ray* ray) {
