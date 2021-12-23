@@ -16,5 +16,5 @@ public:
 	virtual float3 GetNormal(float3 point, float3 D) = 0;
 
 
-	virtual void refract() = 0;
+	virtual bool Refract(Ray * ray) = 0;
 };

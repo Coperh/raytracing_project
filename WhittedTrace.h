@@ -169,12 +169,9 @@ float3 WhittedTrace(Primitive* objects[], int n, Light  lights[], int m, Ray ray
 				return colour * DirectIllumination(objects, n, lights, m, I, N);
 
 
-
-
 			// refraction
 
 			float cosine = dot(N, -ray.D);
-
 			float k = 1 - pow(mat.index, 2) * (1 - pow(cosine, 2));
 
 			float3 refracted_colour = mat.colour;
@@ -185,13 +182,9 @@ float3 WhittedTrace(Primitive* objects[], int n, Light  lights[], int m, Ray ray
 			if (k >= 0)
 			{
 
-				//printf("kay yay\n");
-				
-
+				//printf("kay yay\n");	
 				float3 T = mat.index * ray.D + N * (mat.index * cosine - sqrtf(k));
-
 				Ray refracted = { I + T * EPSILON, T, -1 };
-
 
 				float3 beer = -(mat.colour * ray.t);
 

@@ -16,6 +16,9 @@ public:
 
 	float3 GetNormal(float3 point, float3 D);
 
+
+	bool Refract(Ray* ray);
+
 	void test();
 
 };

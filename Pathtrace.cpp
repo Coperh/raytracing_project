@@ -14,67 +14,69 @@ const int checker_scale = 2;
 
 
 
-float3 Pathtrace::DiffuseReflection(Primitive* objects[], int n, AreaLight* lights[], int m, float3 diffuse, float3 interseciton, float3 normal)
-{
-
-
-
-	float3 colour(1,1,1);
+float3 Pathtrace::DiffuseReflection(Primitive* objects[], int n, AreaLight* lights[], int m, float3 diffuse, float3 interseciton, float3 normal){
 
 
 
 
-	for (int i = 0; i < m; i++) {
-
-		float3 colour_from_light(0, 0, 0);
-
-		float3 randPoints[num_samples];
-
-		lights[i]->GenPoints(randPoints, num_samples);
-
-		for (int j = 0; j < num_samples; j++) {
 
 
 
-			//printf("Rand: %f %f %f\n", randPoints[i].x, randPoints[i].y, randPoints[i].z);
+	// chose random light
+
+	int i = RandomUInt() % m;
+
+
+	//printf("%d %d %d\n", m,  i, RandomUInt());
+
+
+	float3 colour_from_light(0, 0, 0);
+
+	float3 randPoints[num_samples];
+
+	lights[i]->GenPoints(randPoints, num_samples);
+
+	for (int j = 0; j < num_samples; j++) {
 
 
 
-			float3 L = randPoints[i] - interseciton;
+		//printf("Rand: %f %f %f\n", randPoints[i].x, randPoints[i].y, randPoints[i].z);
 
 
-			//float3 L = normalize(raw_vector);
+
+		float3 L = randPoints[i] - interseciton;
 
 
-			float distance = length(L);
+		//float3 L = normalize(raw_vector);
 
 
-			L = L / distance;
-
-			float cos_o = dot(-L, lights[i]->N);
-			float cos_i = dot(L, normal);
-
-			if (!((cos_o <= 0) || (cos_i <= 0))) {
-
-				Ray ray = { interseciton + L * EPSILON, L, distance };
-
-				if (AnyIntersection(objects, n, ray)) {
-					colour += black;
-				}
-				else {
-					float3 BRDF = diffuse * INVPI;
-					float solidAngle = (cos_o * lights[i]->area) / (distance * distance);
+		float distance = length(L);
 
 
-					colour_from_light += BRDF * m * solidAngle * cos_i * lights[i]->mat.colour * lights[i]->mat.intensity;
-				}
+		L = L / distance;
+
+		float cos_o = dot(-L, lights[i]->N);
+		float cos_i = dot(L, normal);
+
+		if (!((cos_o <= 0) || (cos_i <= 0))) {
+
+			Ray ray = { interseciton + L * EPSILON, L, distance };
+
+			if (AnyIntersection(objects, n, ray)) {
+				colour_from_light += black;
 			}
-			else colour += black;
-		}
+			else {
+				float3 BRDF = diffuse * INVPI;
+				float solidAngle = (cos_o * lights[i]->area) / (distance * distance);
 
-		colour = (colour_from_light / num_samples) ;
+
+				colour_from_light += BRDF * m * solidAngle * cos_i * lights[i]->mat.colour;
+			}
+		}
+		else colour_from_light += black;
 	}
-	return colour;
+
+	return colour_from_light / num_samples;
 }
 
 
@@ -84,6 +86,14 @@ float3 Sample(Primitive* objects[], int n, AreaLight* lights[], int m, Ray ray, 
 
 	bounce++;
 
+
+	if (bounce > 10) return black;
+
+
+
+
+
+
 	float3 N;
 	float3 I;
 	float3 colour;
@@ -92,7 +102,7 @@ float3 Sample(Primitive* objects[], int n, AreaLight* lights[], int m, Ray ray, 
 
 	int object = NearestIntersection(objects, n, &ray, &I, &N);
 
-
+	//printf("%d\n", object);
 
 	if (object < 0)
 		return sky;
@@ -101,37 +111,77 @@ float3 Sample(Primitive* objects[], int n, AreaLight* lights[], int m, Ray ray, 
 
 
 
-
+	colour = mat.colour;
 
 
 
 	if (mat.type == Material::Type::light) {
-		return mat.colour;
+		return colour;
 	}
+
+
+	float3 r = ReflectRay(ray.D, N);
+	Ray reflected = { I + r * EPSILON, r, -1 };
 
 	if (mat.type == Material::Type::reflect) {
 
-		float3 r = ReflectRay(ray.D, N);
+		
 
-		Ray reflected = { I + r * EPSILON, r, -1 };
-
-		return Sample(objects, n, lights, m, reflected, bounce);
+		return Sample(objects, n, lights, m, reflected, bounce) * colour ;
 
 	}
 
 
+	if (mat.type == Material::Type::refract) {
+
+	
+
+		Ray refracted{I,ray.D, -1};
 
 
-	colour = mat.colour;
+		if (objects[object]->Refract(&refracted)) {
+		
+			//printf("Reft: %f\n", refracted.t);
+
+
+			float3 beer = -(colour * refracted.t);
+
+			refracted.t = -1;
+			refracted.O = refracted.O + refracted.D * EPSILON;
+
+
+
+			//printf("O: %f %f %f\n", refracted.O.x, refracted.O.y, refracted.O.z);
+			//printf("D: %f %f %f\n", refracted.D.x, refracted.D.y, refracted.D.z);
+
+
+			//printf("Refracted: ");
+			float3 refracted_colour = Sample(objects, n, lights, m, refracted, bounce);
+
+			refracted_colour.x = pow(refracted_colour.x, beer.x);
+			refracted_colour.y = pow(refracted_colour.y, beer.y);
+			refracted_colour.z = pow(refracted_colour.z, beer.z);
+
+
+			return refracted_colour;
+		}
+		else return Sample(objects, n, lights, m, reflected, bounce) * colour;
+	
+	}
+
+
+
+	
 
 
 
 	if (mat.is_checker) {
 
 
-		float3 scaled_pos = I / checker_scale;
+		float3 scaled_pos = floorf(I / checker_scale);
 
-		int check = int(scaled_pos.x) + int(scaled_pos.y) + int(scaled_pos.z);
+		int check = scaled_pos.x + scaled_pos.y + scaled_pos.z;
+
 
 		if (check % 2 == 0){
 			colour = white;

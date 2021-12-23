@@ -1,7 +1,5 @@
 #pragma once
 
-
-
 class AreaLight: public Primitive {
 
 public:
@@ -53,8 +51,6 @@ public:
 
 	void GenPoints(float3 * points, int n)
 	{
-		// WangHash
-		uint seed = 10;
 
 		float xmin = pos.x - halfwidth;
 		float xmax = pos.x + halfwidth;
@@ -85,6 +81,11 @@ public:
 			return -N;
 		return N;
 	};
+
+
+
+
+	bool Refract(Ray* ray) { return false; };
 
 private:
 

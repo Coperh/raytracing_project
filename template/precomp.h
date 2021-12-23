@@ -22,10 +22,9 @@
 #include <algorithm>
 #include <assert.h>
 #include <io.h>
+#include <format>
 
 #include "lib/stb_image.h"
-
-
 
 
 

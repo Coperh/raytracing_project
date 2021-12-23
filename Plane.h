@@ -44,4 +44,10 @@ public:
 			return -N;
 		return N;
 	};
+
+
+
+	bool Refract(Ray* ray) { return false; };
+
+
 };

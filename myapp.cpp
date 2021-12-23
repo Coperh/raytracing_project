@@ -22,8 +22,6 @@ const int AA_Width = SCRWIDTH * aa_res;
 Ray AntiAliasRays[AA_Height][AA_Width];
 
 
-
-
 mat4 directions[] = {
 	mat4::RotateY(-PI / 4), // left
 	mat4::RotateY(PI / 4), // right
@@ -32,49 +30,43 @@ mat4 directions[] = {
 
 
 
-// should be floating point colour values
 
-
-int num_light;
 AreaLight* lights[] = {
-	new AreaLight(float3(0, 50, 0), float3(0, -1, 0), 10, Material(Material::Type::light, float3(1,1,1), 100))
+	new AreaLight(float3(50, 50, 0), float3(0, -1, 0), 100, Material(Material::Type::light, float3(1,1,1), 1)),
+	new AreaLight(float3(-50, 50, 0), float3(0, -1, 0), 100, Material(Material::Type::light, float3(1,1,1), 1)),
 };
-
+const int num_light = sizeof(lights) / sizeof(lights[0]);
 
 /*Light pointLights[] = {
 	//Light(float3(-5, -10, 0), 0.5),
 	Light(float3(5, -10, 0), 0.5) };
 */
 
-int num_prim;
+
 Primitive* primitives[] = {
 
-	new Plane(float3(0, 0, 100), float3(0, 0, -1), Material(Material::Type::diffuse, float3(1, 0, 1),1, true)),// backwall
-	//new Plane(float3(10, 0, 0), float3(1, 0, 0), Material(Material::Type::diffuse, float3(200, 200, 200),1)), // right wall
-	//new Plane(float3(-10, 0, 0), float3(-1, 0, 0), Material(Material::Type::diffuse, float3(255, 0, 0),1)),// left wall
-
-	//new Plane(float3(0, 0, -10), float3(0, 0, -1), Material(Material::Type::diffuse, float3(0, 255, 255),1)),// backwall
-
+	new Plane(float3(0, 0, 50), float3(0, 0, -1), Material(Material::Type::diffuse, float3(1, 0, 1),1)),// frontwall
+	new Plane(float3(50, 0, 0), float3(1, 0, 0), Material(Material::Type::diffuse, float3(1, 1, 0),1)), // right wall
+	new Plane(float3(-50, 0, 0), float3(-1, 0, 0), Material(Material::Type::diffuse, float3(0, 1, 1),1)),// left wall
+	new Plane(float3(0, 0, -50), float3(0, 0, 1), Material(Material::Type::diffuse, float3(0, 1, 0),1)),// backwall
 	new Plane(float3(0, 0, 0), float3(0, 1, 0), Material(Material::Type::diffuse, float3(1e-1, 1e-1,1e-1),0.5, true)), //floor
 
-	//new Plane(float3(0, 0, 10), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window
-	//new Plane(float3(0, 0, 12), float3(1, 0, 1), Material(Material::Type::refract, float3(0, 0, 255),0.8)),// window takes to long to render
-
+	// diffuse
 	new Sphere(float3(0, 6, 25), 4, Material(Material::Type::diffuse, float3(5e-1, 1e-1,1e-1), 1)),
-	new Sphere(float3(0, -2, 25), 2, Material(Material::Type::diffuse, float3(8e-1, 8e-1,8e-1), 1)),
-	new Sphere(float3(10,6, 25), 4, Material(Material::Type::reflect, float3(0, 0, 0), 1)),
-	new Sphere(float3(10,-2, 25), 2, Material(Material::Type::diffuse, float3(8e-1, 8e-1,8e-1), 1)),
-	new Sphere(float3(-10,6, 25), 4, Material(Material::Type::diffuse, float3(5e-1, 5e-1,1e-1), 1)),
-	new Sphere(float3(-10,-2, 25), 2, Material(Material::Type::diffuse, float3(8e-1, 8e-1,8e-1), 1)),
+	new Sphere(float3(0, -3, 25), 5, Material(Material::Type::diffuse, float3(8e-1, 8e-1,8e-1), 1)),
+
+	// mirror
+	new Sphere(float3(10,6, 25), 4, Material(Material::Type::reflect, float3(0.321, 0.898, 0.352), 1)),
+	new Sphere(float3(10,-3, 25), 5, Material(Material::Type::diffuse, float3(8e-1, 8e-1,8e-1), 1)),
 
 
-	//new Sphere(float3(0, 0, 5), 2, Material(Material::Type::diffuse, float3(0,0 ,255), 1))
+	// glass
+	new Sphere(float3(-10,6, 25), 4, Material(Material::Type::refract, float3(5e-1, 5e-1,1e-1), 1)),
+	new Sphere(float3(-10,-3, 25), 5, Material(Material::Type::diffuse, float3(8e-1, 8e-1,8e-1), 1)),
+
 };
 
-
-
-
-
+const int num_prim = sizeof(primitives) / sizeof(primitives[0]);
 
 int frame_count = 0;
 int frames_rendered;
@@ -198,9 +190,6 @@ void MyApp::Init()
 	ResetFrame();
 
 
-	num_prim = sizeof(primitives) / sizeof(primitives[0]);
-	num_light = sizeof(lights) / sizeof(lights);
-
 	printf("Scene with %d primitives and %d lights\n", num_prim, num_light);
 
 
@@ -235,13 +224,13 @@ void MyApp::Tick( float deltaTime )
 	
 	frames_rendered++;
 
-	milliseconds start = duration_cast<milliseconds>(
-		system_clock::now().time_since_epoch()
-		);
+	double energy = 0;
+
+	auto start = high_resolution_clock::now();
 
 
 	// clear the screen to black
-	//screen->Clear( 0 );
+	screen->Clear( 0 );
 
 	
 
@@ -273,6 +262,9 @@ void MyApp::Tick( float deltaTime )
 		const float r = frame[y][x].x / frames_rendered, g = frame[y][x].y / frames_rendered, b = frame[y][x].z / frames_rendered;
 
 
+		energy += r + g + b;
+
+
 		//float3 test_col(1,1,0);
 		//const float r = test_col.x, g = test_col.y, b = test_col.z ;
 
@@ -287,18 +279,41 @@ void MyApp::Tick( float deltaTime )
 
 		//if(ib == 255) printf("ib %d, in %f \n", ib, b);
 	}
+	
+
+	
 
 
-	milliseconds end = duration_cast<milliseconds>(
-		system_clock::now().time_since_epoch()
-		);
+	auto stop = high_resolution_clock::now();
 
-	double time = (end - start).count()/1000;
+	std::chrono::duration<double, std::milli> duration = stop - start;
 
-	printf("Frame %d rendered in %f seconds\n", frames_rendered, time);
+	double seconds = duration.count() / 1000;
+
+	printf("Frame %d rendered in %f seconds\n", frame_count, seconds);
 
 
+	char lumtext[32];
+	
+	sprintf(lumtext, "Energy: %.2f", energy);
 
+	screen->Print(
+		lumtext,
+		SCRWIDTH / 32,
+		SCRHEIGHT / 16,
+		0xFFFFFFFF);
+
+
+	char FPS[20];
+	sprintf(FPS, "FPS   : %.2f", 1/seconds);
+	screen->Print(
+		FPS,
+		SCRWIDTH / 32,
+		(SCRHEIGHT / 16) +10,
+		0xFFFFFFFF);
+
+
+	frame_count++;
 
 
 }
