@@ -8,53 +8,20 @@
 #define DIST 2.0f
 
 
-/*
-typedef struct Ray {
-
-	float3 O;
-	float3
-
-};
-
-*/
-
-
-
-
-// id of time and total number of items
-int ray_O_x (int id, int n){
-	return id;
-}int ray_O_y (int id, int n){
-	return id + n;
-}
-int ray_O_z (int id, int n){
-	return id + n * 2;
-}
-int ray_D_x (int id, int n){
-	return id + n * 3;
-}
-int ray_D_y (int id, int n){
-	return id + n * 4;
-}
-int ray_D_z (int id, int n){
-	return id + n * 5;
-}
-int ray_t (int id, int n){
-	return id + n * 6;
-}
-
-
-
-
-
-
-__kernel void generate_primary_rays(__global float * rays, __global int * dims, float3 E, float d, float3 V)
+__kernel void generate_primary_rays(__global struct Ray* rays, const int n, float3 E, float d, float3 V)
 {
+
 
 	int idx = get_global_id(0);
 	int idy = get_global_id(1);
 
-	int id = idx + idy * dims[0];
+
+	int id = idx + idy * get_global_size(0);
+
+
+
+	if (id >= n) return;
+
 
 	float3 center = E + d * V;
 
@@ -64,63 +31,44 @@ __kernel void generate_primary_rays(__global float * rays, __global int * dims, 
 	float3 P2 = center + (float3)(-1, -1, 0);
 
 
-	float u = (float)idx / dims[0];
-	float v = (float)idy / dims[1];
+	float u = (float)idx / get_global_size(0);
+	float v = (float)idy / get_global_size(1);
 	float3 O = P0 + u * (P1 - P0) + v * (P2 - P0);
 	float3 D = O - E;
 
 
-	D = normalize(D);
+	// save ray stuff
+	rays[id].D = normalize(D);
+	rays[id].O = O;
+
+	rays[id].id = id;
 
 
-	// save O
-
-	rays[ray_O_x(id, dims[2])] = O.x;
-	rays[ray_O_y(id, dims[2])] = O.y;
-	rays[ray_O_z(id, dims[2])] = O.z;
-
-	rays[ray_D_x(id, dims[2])] = D.x;
-	rays[ray_D_y(id, dims[2])] = D.y;
-	rays[ray_D_z(id, dims[2])] = D.z;
-
+	//printf("Ray: %d\n", rays[id].id);
 
 }
 
 
 
 
+// 
 
-
-__kernel void cast_rays(__global float * rays, __global int * dims, write_only image2d_t a)
+__kernel void cast_rays(__global struct Ray* rays, __global float3* a)
 {
+	
+	
+
 
 	int idx = get_global_id(0);
 	int idy = get_global_id(1);
 
-	int id = idx + idy * dims[0];
-
-
+	int id = idx + idy * get_global_size(0);
+	//printf("Ray: %d\n", rays[id].id);
 
 	//int2 imd = get_image_dim(a);
-	//printf("%d %d\n", imd.x, imd.y );
 
 
-	float3 O = (float3) (
-		rays[ray_O_x(id, dims[2])],
-		rays[ray_O_y(id, dims[2])],
-		rays[ray_O_z(id, dims[2])]
-		);
-
-
-	float3 D = (float3) (
-		rays[ray_D_x(id, dims[2])],
-		rays[ray_D_y(id, dims[2])],
-		rays[ray_D_z(id, dims[2])]
-		);
-
-
-
-		// sphere
+	// sphere
 	float t = 0;
 	float r2 = 25; // radius of 5
 	float3 pos = (float3)(0, 10, 20);
@@ -130,15 +78,15 @@ __kernel void cast_rays(__global float * rays, __global int * dims, write_only i
 
 	// intersect circle
 
-	float3 C = pos - O;
+	float3 C = pos - rays[id].O;
 
 	//printf("X:%f Y:%f Z:%f\n", C.x, C.y, C.z);
 
-	t = dot(C, D);
+	t = dot(C, rays[id].D);
 
 
 
-	float3 Q = C - t * D;
+	float3 Q = C - t * rays[id].D;
 	float p2 = dot(Q, Q);
 
 
@@ -146,7 +94,7 @@ __kernel void cast_rays(__global float * rays, __global int * dims, write_only i
 	//printf("%f %f\n", r2, p2);
 
 	if (p2 > r2) {
-		write_imagef(a, pix, 0.f);
+		a[id] = (float3)(0,0,0);
 		return; 
 	}
 	
@@ -159,11 +107,11 @@ __kernel void cast_rays(__global float * rays, __global int * dims, write_only i
 	// display pixel
 
 	if (t <= 0) {
-		write_imagef(a, pix, 0.f);
+		a[id] = (float3)(0,0,0);
 		return;
 	}
 		
-	write_imagef(a, pix, col);
+	a[id] = (float3)(1,0,0);
 
 
 
@@ -171,6 +119,43 @@ __kernel void cast_rays(__global float * rays, __global int * dims, write_only i
 }
 
 
+
+
+__kernel void anti_alias(__global float3* input, __global float3* output, int aa_res){
+	
+
+	// get the local x and y in aa_res step sizes
+	int local_x = get_global_id(0) * aa_res;
+	int local_y = get_global_id(1) * aa_res;
+	
+
+	float3 colour = (float3)(0,0,0);
+
+	
+	for( int i = 0; i < aa_res; i++){
+		for( int j = 0; j < aa_res; j++){
+
+
+			
+			// get the sub pixels, screen width needs to be multiplied by aa res
+			long local_id = (local_x + j) + ((local_y + i) * get_global_size(0) * aa_res);
+			
+			//if (id == 0) printf("test %d\n", local_id);
+
+			colour += input[local_id];
+		
+		}
+	}
+
+
+	long id = get_global_id(0) + get_global_id(1) * get_global_size(0);
+
+	output[id] = colour / 4;
+
+
+
+
+}
 
 
 

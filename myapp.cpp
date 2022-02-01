@@ -6,17 +6,22 @@ using namespace std::chrono;
 TheApp* CreateApp() { return new MyApp(); }
 
 
-static float3 E(0, 10, 0), V(0, -0.2, 0.8);
+static float3 E(0, 10, 0), V(0, 0, 1);
 static float d = 2;
 
 
-float3 frame[SCRHEIGHT][SCRWIDTH];
+//float3 frame[SCRHEIGHT][SCRWIDTH];
 
-const int aa_res = 1;
+const int aa_res = 2;
 const int num_subpix = aa_res * aa_res;
 const int AA_Height = SCRHEIGHT * aa_res;
 const int AA_Width = SCRWIDTH * aa_res;
 
+
+
+
+
+const  int TOTAL_RAYS = AA_Height * AA_Width;
 //Ray AntiAliasRays[AA_Height][AA_Width];
 
 
@@ -38,7 +43,19 @@ cl::Context context;
 cl::CommandQueue queue;
 cl::Program program;
 
-cl::Kernel test_k;
+// cl buffers
+cl::Image2D image;
+cl::Buffer image_buffer;
+cl::Buffer accumulated_colour;
+
+cl::Buffer rays;
+
+
+// opencl kernels
+cl::Kernel test_k; 
+cl::Kernel cast_rays;
+cl::Kernel anti_alias;
+
 
 
 
@@ -85,12 +102,6 @@ void MyApp::Init()
 
 
 
-	//Kernel myKernel("wavefront.cl", "test_kern");
-
-
-	//OpenCL
-	//clGetDeviceIDs(NULL, CL_DEVICE_TYPE_GPU, 1,&device, NULL);
-
 
 
 	vector<cl::Platform> platforms;
@@ -98,48 +109,40 @@ void MyApp::Init()
 	cl::Platform::get(&platforms);
 
 
-
+	// get default platform
 	if (platforms.size() == 0) {
 		std::cout << " No platforms found.\n";
 		exit(1);
 	}
-
-
 	cl::Platform default_platform = platforms[0];
 	std::cout << "Using platform: " << default_platform.getInfo<CL_PLATFORM_NAME>() << "\n";
 
+	// get device
 	vector<cl::Device> devices;
 	default_platform.getDevices(CL_DEVICE_TYPE_ALL, &devices);
-
 
 	if (devices.size() == 0) {
 		std::cout << " No devices found.\n";
 		exit(1);
 	}
-
+	// AMD CPU is not supported, only one device i.e. GPU
 	device = devices[0];
 	std::cout << "Using device: " << device.getInfo<CL_DEVICE_NAME>() << "\n";
 
 
-
+	// create context
 	context = cl::Context({ device });
 
-
-	//queue = clCreateCommandQueue(context, device, (cl_command_queue_properties)0, NULL);
-
-
-
+	// load program
 	std::ifstream sourceFile("wavefront.cl");
 	std::string sourceCode(std::istreambuf_iterator<char>(sourceFile), (std::istreambuf_iterator<char>()));
 	cl::Program::Sources source(1, std::make_pair(sourceCode.c_str(), sourceCode.length()));
 
 	program = cl::Program(context, source);
 
-
-
+	// build program
 	if (program.build({ device }) != CL_SUCCESS) {
 		std::cout << "Error building: " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
-
 
 		cin.get();
 
@@ -147,27 +150,58 @@ void MyApp::Init()
 	}
 
 
+	// make kernels
+	cl::Kernel generate_primary_rays = cl::Kernel(program, "generate_primary_rays");
+
+	cast_rays = cl::Kernel(program, "cast_rays");
 
 
 
-
+	// create queue
 	queue = cl::CommandQueue(context);
 
+	// Create buffers
+	rays = cl::Buffer(context, CL_MEM_READ_WRITE, TOTAL_RAYS * sizeof(Ray));
+	accumulated_colour = cl::Buffer(context, CL_MEM_READ_WRITE, TOTAL_RAYS * sizeof(float3));
 	
 
-	const int N = 100;
+	// setupt Anti Alias
+	if (aa_res > 1) {
+		image_buffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, SCRWIDTH * SCRHEIGHT * sizeof(float3));
+		anti_alias = cl::Kernel(program, "anti_alias");
+
+		anti_alias.setArg(0, accumulated_colour);
+		anti_alias.setArg(1, image_buffer);
+		anti_alias.setArg(2, aa_res);
+		
+
+	}
+		
 
 
-	std::vector<Ray> a(N);
-
-	// Allocate device buffers and transfer input data to device.
-	cl::Buffer A(context, CL_MEM_READ_WRITE, a.size() * sizeof(Ray));
 
 
+	cl::ImageFormat format;
+	format.image_channel_order = CL_RGBA;
+	format.image_channel_data_type = CL_FLOAT;
 
+	image = cl::Image2D(context, CL_MEM_WRITE_ONLY, format, AA_Width, AA_Height);
+	
+
+	//queue.enqueueWriteBuffer(A, CL_TRUE, 0, sizeof(int) * TOTAL_RAYS, a.data());
 	//queue.enqueueWriteBuffer(A, 0, a.size() * sizeof(double), a.data());
 
 
+	
+
+
+	generate_primary_rays.setArg(0, rays);
+	generate_primary_rays.setArg(1, TOTAL_RAYS);
+	generate_primary_rays.setArg(2, E);
+	generate_primary_rays.setArg(3, d);
+	generate_primary_rays.setArg(4, V);
+
+	/*
 	test_k = cl::Kernel(program,"test_kern");
 
 	test_k.setArg(0, A);
@@ -175,17 +209,26 @@ void MyApp::Init()
 	queue.enqueueNDRangeKernel(test_k, cl::NullRange, N, cl::NullRange);
 
 	//mat4 rotation_matrix = mat4::RotateX(PI);
+	*/
 
 
-	queue.enqueueReadBuffer(A, CL_TRUE, 0, a.size() * sizeof(Ray), a.data());
+	queue.enqueueNDRangeKernel(generate_primary_rays, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
 
 
+	//queue.enqueueReadBuffer(rays, CL_TRUE, 0, TOTAL_RAYS * sizeof(Ray), a.data());
+	//queue.enqueueWriteBuffer(rays, CL_TRUE, 0, sizeof(int) * TOTAL_RAYS, a.data());
 
-	//printf("Boop %f\n", a[12]);
-
+	
+	// set unchanging args
+	
+	cast_rays.setArg(1, accumulated_colour);
+	
 
 	printf("Initialization complete\n");
 }
+
+
+
 
 
 
@@ -195,6 +238,14 @@ void MyApp::Init()
 void MyApp::Tick( float deltaTime )
 {
 	
+	
+
+
+
+	cl_int result;
+
+
+
 	frames_rendered++;
 
 	//double energy = 0;
@@ -205,42 +256,55 @@ void MyApp::Tick( float deltaTime )
 	// clear the screen to black
 	screen->Clear( 0 );
 
+
+	cast_rays.setArg(0, rays);
 	
+
+	
+	result = queue.enqueueNDRangeKernel(cast_rays, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
+
+
+	//if ( result != CL_SUCCESS) std::cerr << result << std::endl;
+
+
+
+
+	//queue.enqueueReadImage(image, CL_TRUE, {0,0,0}, );
+
+	
+	std::vector<float3> pixels(SCRHEIGHT * SCRWIDTH);
+	
+	//cout << aa_res << endl;
+	if (aa_res > 1) {
+		result = queue.enqueueNDRangeKernel(anti_alias, cl::NullRange, cl::NDRange(SCRWIDTH, SCRHEIGHT), cl::NDRange(16, 16));
+		//std::cerr << result << std::endl;
+		queue.enqueueReadBuffer(image_buffer, CL_TRUE, 0, SCRHEIGHT * SCRWIDTH * sizeof(float3), pixels.data());
+	}	
+	else {
+		queue.enqueueReadBuffer(accumulated_colour, CL_TRUE, 0, SCRHEIGHT* SCRWIDTH * sizeof(float3), pixels.data());
+	}
+
 	
 	for (int y=0; y< SCRHEIGHT; y++) for (int x = 0; x< SCRWIDTH; x++){
 
-		// for every sub pixel
-
-		float3 average_colour(0, 0, 0);
-
-		//printf("Start %d %d\n", y, x);
 
 
-		frame[y][x] += average_colour / num_subpix;
-
+		int id = x + y * SCRWIDTH;
 		
-		const float r = frame[y][x].x / frames_rendered, g = frame[y][x].y / frames_rendered, b = frame[y][x].z / frames_rendered;
+		const float r = pixels[id].x, g = pixels[id].y, b = pixels[id].z;
 
 
 		//energy += r + g + b;
-
-
 		//float3 test_col(1,1,0);
 		//const float r = test_col.x, g = test_col.y, b = test_col.z ;
-
-
 
 		const uint ir = min((uint)(r * 255), 255u);
 		const uint ig = min((uint)(g * 255), 255u);
 		const uint ib = min((uint)(b * 255), 255u);
 		screen->Plot(x, y, (ir << 16) + (ig << 8) + ib);
 
-
-
 		//if(ib == 255) printf("ib %d, in %f \n", ib, b);
 	}
-	
-
 	
 
 
@@ -249,9 +313,6 @@ void MyApp::Tick( float deltaTime )
 	std::chrono::duration<double, std::milli> duration = stop - start;
 
 	double seconds = duration.count() / 1000;
-
-	//printf("Frame %d rendered in %f seconds\n", frame_count, seconds);
-
 
 	
 	/*
@@ -262,16 +323,16 @@ void MyApp::Tick( float deltaTime )
 		SCRWIDTH / 32,
 		SCRHEIGHT / 16,
 		0xFFFFFFFF);
-
+	*/
 
 	char FPS[20];
-	sprintf(FPS, "FPS   : %.2f", 1/seconds);
+	std::sprintf(FPS, "FPS: %.2f", 1/seconds);
 	screen->Print(
 		FPS,
 		SCRWIDTH / 32,
-		(SCRHEIGHT / 16) +10,
+		(SCRHEIGHT / 16),
 		0xFFFFFFFF);
-	*/
+	
 
 	frame_count++;
 
