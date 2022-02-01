@@ -1,0 +1,64 @@
+/*
+void RotateWindow(mat4 * dir){
+	
+	V = dir->TransformVector(V);
+
+	float3 center = E + d * V;
+	
+	mat4* direction;
+
+
+	printf("Center: %f %f %f\n", center.x, center.y, center.z);
+	printf("Dir %f %f %f\n", V.x, V.y, V.z);
+
+
+	for (int y = 0; y < AA_Height; y++) for (int x = 0; x < AA_Width; x++) {
+
+		AntiAliasRays[y][x].D = dir->TransformPoint(AntiAliasRays[y][x].D);
+		AntiAliasRays[y][x].O = dir->TransformPoint(AntiAliasRays[y][x].O);
+		AntiAliasRays[y][x].t = -1;
+	}
+
+}
+
+
+void CalculateWindow() 
+{
+
+	float3 center = E + d * V;
+
+	printf("Center: %f %f %f\n", center.x, center.y, center.z);
+	printf("Dir %f %f %f\n", V.x, V.y, V.z);
+
+	// flippde to get better coords
+	float3 P0 = center + float3(-1, 1, 0);
+	float3 P1 = center + float3(1, 1, 0);
+	float3 P2 = center + float3(-1, -1, 0);
+
+	for (int y = 0; y < AA_Height; y++) for (int x = 0; x < AA_Width; x++) {
+
+		float u = float(x) / AA_Width;
+		float v = float(y) / AA_Height;
+		float3 Puv = P0 + u * (P1 - P0) + v * (P2 - P0);
+		float3 D = Puv - E;
+
+		AntiAliasRays[y][x].D = normalize(D);
+		AntiAliasRays[y][x].O = Puv;
+		AntiAliasRays[y][x].t = -1;
+	}
+
+}
+
+void ResetFrame() 
+{
+	frames_rendered = 0;
+
+	for (int y = 0; y < AA_Height; y++) for (int x = 0; x < AA_Width; x++) {
+
+		frame[y][x].x = 0;
+		frame[y][x].y = 0;
+		frame[y][x].z = 0;
+	}
+
+}
+*/

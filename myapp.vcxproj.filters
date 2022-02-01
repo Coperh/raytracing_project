@@ -5,9 +5,15 @@
       <Filter>template</Filter>
     </ClCompile>
     <ClCompile Include="myapp.cpp" />
-    <ClCompile Include="Pathtrace.cpp" />
-    <ClCompile Include="Sphere.cpp" />
-    <ClCompile Include="Intersection.cpp" />
+    <ClCompile Include="Intersection.cpp">
+      <Filter>OldStuffs</Filter>
+    </ClCompile>
+    <ClCompile Include="Pathtrace.cpp">
+      <Filter>OldStuffs</Filter>
+    </ClCompile>
+    <ClCompile Include="Sphere.cpp">
+      <Filter>OldStuffs</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="template\common.h">
@@ -20,16 +26,37 @@
     <ClInclude Include="cl\tools.cl">
       <Filter>template\cl</Filter>
     </ClInclude>
-    <ClInclude Include="Plane.h" />
-    <ClInclude Include="Sphere.h" />
-    <ClInclude Include="Material.h" />
-    <ClInclude Include="WhittedTrace.h" />
-    <ClInclude Include="Light.h" />
-    <ClInclude Include="Primitive.h" />
-    <ClInclude Include="Intersection.h" />
-    <ClInclude Include="Pathtrace.h" />
-    <ClInclude Include="Ray.h" />
-    <ClInclude Include="AreaLight.h" />
+    <ClInclude Include="AreaLight.h">
+      <Filter>OldStuffs</Filter>
+    </ClInclude>
+    <ClInclude Include="Intersection.h">
+      <Filter>OldStuffs</Filter>
+    </ClInclude>
+    <ClInclude Include="Light.h">
+      <Filter>OldStuffs</Filter>
+    </ClInclude>
+    <ClInclude Include="Material.h">
+      <Filter>OldStuffs</Filter>
+    </ClInclude>
+    <ClInclude Include="Pathtrace.h">
+      <Filter>OldStuffs</Filter>
+    </ClInclude>
+    <ClInclude Include="Plane.h">
+      <Filter>OldStuffs</Filter>
+    </ClInclude>
+    <ClInclude Include="Primitive.h">
+      <Filter>OldStuffs</Filter>
+    </ClInclude>
+    <ClInclude Include="Ray.h">
+      <Filter>OldStuffs</Filter>
+    </ClInclude>
+    <ClInclude Include="Sphere.h">
+      <Filter>OldStuffs</Filter>
+    </ClInclude>
+    <ClInclude Include="WhittedTrace.h">
+      <Filter>OldStuffs</Filter>
+    </ClInclude>
+    <ClInclude Include="cl_structs.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="template\LICENSE">
@@ -41,6 +68,7 @@
     <None Include="cl\kernels.cl">
       <Filter>template\cl</Filter>
     </None>
+    <None Include="wavefront.cl" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="template">
@@ -49,5 +77,11 @@
     <Filter Include="template\cl">
       <UniqueIdentifier>{dc41819e-b6c1-4070-b4c1-0849e444ca7e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="OldStuffs">
+      <UniqueIdentifier>{9dba8652-9247-4299-9948-6a8c52de4f57}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="old_stuff.txt" />
   </ItemGroup>
 </Project>

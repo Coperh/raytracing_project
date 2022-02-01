@@ -50,6 +50,7 @@ using namespace std;
 
 // OpenCL headers
 #include "cl/cl.h"
+#include "cl/cl.hpp"
 #include <cl/cl_gl_ext.h>
 
 // GLFW
@@ -1236,18 +1237,16 @@ const float EPSILON = 1e-2;
 
 
 #include "myapp.h"
-#include "Ray.h"
+//#include "Ray.h"
 
-#include "Material.h"
-#include "Primitive.h"
-#include "Sphere.h"
-#include "Plane.h"
+#include "cl_structs.h"
 
-#include "AreaLight.h"
-
-#include "Intersection.h"
-
-#include "Pathtrace.h"
-
+//#include "Material.h"
+//#include "Primitive.h"
+//#include "Sphere.h"
+//#include "Plane.h"
+//#include "AreaLight.h"
+//#include "Intersection.h"
+//#include "Pathtrace.h"
 //#include "WhittedTrace.h"
 //#include "Light.h"
