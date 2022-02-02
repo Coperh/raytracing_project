@@ -8,7 +8,7 @@
 #define DIST 2.0f
 
 
-__kernel void generate_primary_rays(__global struct Ray* rays, const int n, float3 E, float d, float3 V)
+__kernel void generate_primary_rays(__global struct Ray* rays,  const int n, float3 E, float d, float3 V)
 {
 
 
@@ -50,72 +50,59 @@ __kernel void generate_primary_rays(__global struct Ray* rays, const int n, floa
 
 
 
-
-// 
-
-__kernel void cast_rays(__global struct Ray* rays, __global float3* a)
+__kernel void cast_rays(__global struct Ray* rays, __global struct Primitive* prims, const int num_prims, __global float3* a)
 {
 	
+
+	int id = get_global_id(0) + get_global_id(1) * get_global_size(0);
 	
 
 
-	int idx = get_global_id(0);
-	int idy = get_global_id(1);
+	float best_t = FLT_MAX;
+	int best_prim = -1;
 
-	int id = idx + idy * get_global_size(0);
-	//printf("Ray: %d\n", rays[id].id);
-
-	//int2 imd = get_image_dim(a);
-
-
-	// sphere
-	float t = 0;
-	float r2 = 25; // radius of 5
-	float3 pos = (float3)(0, 10, 20);
-	float4 col = (float4)(1, 0, 0, 1);
-
-	int2 pix = (int2)(idx, idy);
-
-	// intersect circle
-
-	float3 C = pos - rays[id].O;
-
-	//printf("X:%f Y:%f Z:%f\n", C.x, C.y, C.z);
-
-	t = dot(C, rays[id].D);
-
-
-
-	float3 Q = C - t * rays[id].D;
-	float p2 = dot(Q, Q);
-
-
-
-	//printf("%f %f\n", r2, p2);
-
-	if (p2 > r2) {
-		a[id] = (float3)(0,0,0);
-		return; 
-	}
+	struct Ray ray = rays[id];
 	
 
+	for (int i = 0; i < num_prims; i++){
 
-	t -= sqrt(r2 - p2);
+		struct Primitive prim = prims[i];
+		float denom = dot(prim.N, ray.D);
 
-	//printf("test\n");
+		if (denom != 0)
+		{
+			float num = -(dot(ray.O, prim.N) + prim.o);
+			float t = num / denom;
 
-	// display pixel
+			//printf("test %d\n", t)
 
-	if (t <= 0) {
-		a[id] = (float3)(0,0,0);
-		return;
+			if  (t > 0 && t < best_t) {
+				best_t = t;
+				best_prim = i;
+
+			}
+	
+		}
 	}
-		
-	a[id] = (float3)(1,0,0);
 
+	switch(best_prim){
 
-
-
+		case(0):
+			a[id] = (float3)(0,1,1);
+			break;
+		case(1):
+			a[id] = (float3)(1,0,1);
+			break;
+		case(2):
+			a[id] = (float3)(1,1,0);
+			break;
+		case(3):
+			a[id] = (float3)(1,0,0);
+			break;
+		default:
+			a[id] = (float3)(0,0,0);
+			break;
+		}
 }
 
 

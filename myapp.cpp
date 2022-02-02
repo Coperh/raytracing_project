@@ -7,23 +7,19 @@ TheApp* CreateApp() { return new MyApp(); }
 
 
 static float3 E(0, 10, 0), V(0, 0, 1);
-static float d = 2;
+static float d = 1;
 
 
 //float3 frame[SCRHEIGHT][SCRWIDTH];
 
-const int aa_res = 2;
+const int aa_res = 1;
 const int num_subpix = aa_res * aa_res;
 const int AA_Height = SCRHEIGHT * aa_res;
 const int AA_Width = SCRWIDTH * aa_res;
 
 
-
-
-
 const  int TOTAL_RAYS = AA_Height * AA_Width;
 //Ray AntiAliasRays[AA_Height][AA_Width];
-
 
 mat4 directions[] = {
 	mat4::RotateY(-PI / 4), // left
@@ -31,10 +27,8 @@ mat4 directions[] = {
 	};
 
 
-
 int frame_count = 0;
 int frames_rendered;
-
 
 
 // opencl stuff
@@ -49,12 +43,54 @@ cl::Buffer image_buffer;
 cl::Buffer accumulated_colour;
 
 cl::Buffer rays;
-
+cl::Buffer light_buffer;
+cl::Buffer prims_buffer;
+cl::Buffer mats_buffer;
 
 // opencl kernels
 cl::Kernel test_k; 
 cl::Kernel cast_rays;
 cl::Kernel anti_alias;
+
+
+
+PointLight lights[] = {
+	{float3(75,75,0), 10.0f},
+	{float3(-75,75,0), 10.0f}
+};
+const int num_lights = sizeof(lights) / sizeof(lights[0]);
+
+
+
+
+float3 pos[] = { float3(0, 0, 50), float3(20, 0, 0),float3(-20, 0, 0), float3(0, 0, 0) };
+float3 normals[] = { float3(0, 0, -1), float3(1, 0, 0), float3(-1, 0, 0), float3(0, 1, 0) };
+float3 cols[] = { float3(1, 0, 1), float3(1, 1, 0), float3(0, 1, 1), float3(0, 1, 0) };
+int num_prims = sizeof(pos) / sizeof(pos[0]);
+
+vector<Primitive>  prims(4);
+vector<Material>  mats(4);
+
+
+
+void CreatePrims() {
+
+	printf("Setting up primitives\n");
+
+	for (int i = 0; i < num_prims; i++) 
+	{
+		float t = -(dot(normals[i], pos[i]));
+
+		prims.at(i) = { pos[i], normals[i], t, i };
+		mats.at(i) = {cols[i], 0, 1};
+		
+			
+		//printf("%f\n", prims[i].pos.z);
+	}
+
+}
+
+
 
 
 
@@ -101,7 +137,7 @@ void MyApp::Init()
 	printf("AA Res: %d X %d\n", AA_Width, AA_Height);
 
 
-
+	CreatePrims();
 
 
 	vector<cl::Platform> platforms;
@@ -164,6 +200,16 @@ void MyApp::Init()
 	rays = cl::Buffer(context, CL_MEM_READ_WRITE, TOTAL_RAYS * sizeof(Ray));
 	accumulated_colour = cl::Buffer(context, CL_MEM_READ_WRITE, TOTAL_RAYS * sizeof(float3));
 	
+	light_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, num_lights * sizeof(PointLight));
+	queue.enqueueWriteBuffer(light_buffer, CL_TRUE, 0, num_lights * sizeof(PointLight), lights);
+
+	prims_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, prims.size() * sizeof(Primitive));
+	queue.enqueueWriteBuffer(prims_buffer, CL_TRUE, 0, prims.size() * sizeof(Primitive), prims.data());
+
+
+	mats_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, mats.size() * sizeof(Material));
+	queue.enqueueWriteBuffer(mats_buffer, CL_TRUE, 0, mats.size() * sizeof(Material), mats.data());
+
 
 	// setupt Anti Alias
 	if (aa_res > 1) {
@@ -172,14 +218,8 @@ void MyApp::Init()
 
 		anti_alias.setArg(0, accumulated_colour);
 		anti_alias.setArg(1, image_buffer);
-		anti_alias.setArg(2, aa_res);
-		
-
+		anti_alias.setArg(2, aa_res);		
 	}
-		
-
-
-
 
 	cl::ImageFormat format;
 	format.image_channel_order = CL_RGBA;
@@ -192,24 +232,16 @@ void MyApp::Init()
 	//queue.enqueueWriteBuffer(A, 0, a.size() * sizeof(double), a.data());
 
 
-	
-
-
 	generate_primary_rays.setArg(0, rays);
 	generate_primary_rays.setArg(1, TOTAL_RAYS);
 	generate_primary_rays.setArg(2, E);
 	generate_primary_rays.setArg(3, d);
 	generate_primary_rays.setArg(4, V);
 
-	/*
-	test_k = cl::Kernel(program,"test_kern");
 
-	test_k.setArg(0, A);
 
-	queue.enqueueNDRangeKernel(test_k, cl::NullRange, N, cl::NullRange);
 
 	//mat4 rotation_matrix = mat4::RotateX(PI);
-	*/
 
 
 	queue.enqueueNDRangeKernel(generate_primary_rays, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
@@ -221,8 +253,13 @@ void MyApp::Init()
 	
 	// set unchanging args
 	
-	cast_rays.setArg(1, accumulated_colour);
 	
+
+	cast_rays.setArg(1, prims_buffer);
+	cast_rays.setArg(2, static_cast<int>(prims.size()));
+	cast_rays.setArg(3, accumulated_colour);
+	
+
 
 	printf("Initialization complete\n");
 }
@@ -238,7 +275,8 @@ void MyApp::Init()
 void MyApp::Tick( float deltaTime )
 {
 	
-	
+	// clear the screen to black
+	//screen->Clear(0);
 
 
 
@@ -248,23 +286,20 @@ void MyApp::Tick( float deltaTime )
 
 	frames_rendered++;
 
-	//double energy = 0;
 
 	auto start = high_resolution_clock::now();
 
-
-	// clear the screen to black
-	screen->Clear( 0 );
-
-
 	cast_rays.setArg(0, rays);
+	
+	//printf("%f\n", prims[0].o);
+
 	
 
 	
 	result = queue.enqueueNDRangeKernel(cast_rays, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
 
 
-	//if ( result != CL_SUCCESS) std::cerr << result << std::endl;
+	if ( result != CL_SUCCESS) std::cerr << result << std::endl;
 
 
 
@@ -284,37 +319,26 @@ void MyApp::Tick( float deltaTime )
 		queue.enqueueReadBuffer(accumulated_colour, CL_TRUE, 0, SCRHEIGHT* SCRWIDTH * sizeof(float3), pixels.data());
 	}
 
+
+
 	
 	for (int y=0; y< SCRHEIGHT; y++) for (int x = 0; x< SCRWIDTH; x++){
-
-
-
 		int id = x + y * SCRWIDTH;
 		
 		const float r = pixels[id].x, g = pixels[id].y, b = pixels[id].z;
-
-
-		//energy += r + g + b;
-		//float3 test_col(1,1,0);
-		//const float r = test_col.x, g = test_col.y, b = test_col.z ;
 
 		const uint ir = min((uint)(r * 255), 255u);
 		const uint ig = min((uint)(g * 255), 255u);
 		const uint ib = min((uint)(b * 255), 255u);
 		screen->Plot(x, y, (ir << 16) + (ig << 8) + ib);
-
-		//if(ib == 255) printf("ib %d, in %f \n", ib, b);
 	}
 	
 
 
 	auto stop = high_resolution_clock::now();
-
 	std::chrono::duration<double, std::milli> duration = stop - start;
-
 	double seconds = duration.count() / 1000;
 
-	
 	/*
 	char lumtext[32];
 	sprintf(lumtext, "Energy: %.2f", energy);
@@ -333,6 +357,8 @@ void MyApp::Tick( float deltaTime )
 		(SCRHEIGHT / 16),
 		0xFFFFFFFF);
 	
+
+	//printf("Frame %d rendered in %f seconds\n", frame_count, seconds);
 
 	frame_count++;
 
