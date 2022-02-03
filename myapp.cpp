@@ -56,21 +56,21 @@ cl::Kernel shade_intersections;
 cl::Kernel direct_illumination;
 
 PointLight lights[] = {
-	{float3(5,20,0), 100.0f},
-	{float3(-5,20,0), 100.0f}
+	{float3(5,15,0), 100.0f},
+	{float3(-5,15,0), 100.0f}
 };
 const int num_lights = sizeof(lights) / sizeof(lights[0]);
 
 
 
 
-float3 pos[] = { float3(0, 0, 20), float3(10, 0, 0),float3(-10, 0, 0), float3(0, 0, 0) };
-float3 normals[] = { float3(0, 0, -1), float3(1, 0, 0), float3(-1, 0, 0), float3(0, 1, 0) };
-float3 cols[] = { float3(1, 0, 1), float3(1, 1, 0), float3(0, 1, 1), float3(1, 0, 0) };
+float3 pos[] = { float3(0, 0, 20), float3(10, 0, 0),float3(-10, 0, 0), float3(0, 0, 0)};
+float3 normals[] = { float3(0, 0, -1), float3(1, 0, 0), float3(-1, 0, 0), float3(0, 1, 0)};
+float3 cols[] = { float3(1, 0, 1), float3(1, 1, 0), float3(0, 1, 1), float3(1, 0, 0)};
 int num_prims = sizeof(pos) / sizeof(pos[0]);
 
-vector<Primitive>  prims(4);
-vector<Material>  mats(4);
+vector<Primitive>  prims(num_prims);
+vector<Material>  mats(num_prims);
 
 
 

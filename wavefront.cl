@@ -89,6 +89,8 @@ __kernel void cast_rays(
 
 			//printf("test %d\n", t)
 
+			
+
 			if  (t > 0 && t < best_t) {
 				best_t = t;
 				best_prim = i;
@@ -114,10 +116,12 @@ __kernel void cast_rays(
 		intersctions[id].N = prim.N;
 
 	intersctions[id].D = ray.D;
-	intersctions[id].I =  ray.D * best_t;
+	intersctions[id].I =  ray.O + (ray.D * best_t);
 	
 
 	if(best_prim >= 0) atomic_inc(incs);
+
+	//if (best_prim == 1) printf("test %f %d\n", best_t,id);
 }
 
 
@@ -140,6 +144,7 @@ __kernel void shade_intersections(
 	
 	if (mat.type == 0){
 
+		
 		directIllum[id].id = intersection.id;
 		directIllum[id].O = intersection.I;
 		directIllum[id].D = intersection.N;
@@ -172,16 +177,9 @@ __kernel void direct_illumination(
 
 	for (int l = 0; l < num_lights; l++)
 	{
-
 		ray.D = normalize(lights[l].pos - orig_o);
-
 		ray.O = orig_o + (ray.D * EPISLON);
-
-
-
 		float dist = distance(ray.O, lights[l].pos);
-
-		const float  min_t = dist;
 
 		bool blocked = false;
 
@@ -194,30 +192,24 @@ __kernel void direct_illumination(
 			{
 				float num = -(dot(ray.O, prim.N) + prim.o);
 				float t = num / denom;
-				if  (t > 0 && t < min_t) {
+
+				if  (t > 0 && t < dist) {
+					//if (id == 0 && i == 3) printf("%f, %d", t, i );
 					blocked = true;
 					break;
 				}
 			}	
 		}
-
 		if (!blocked){
-
-
 			float cosine = max(0.0f, dot(ray.D, normal));
-
 			float dis_square = (dist * dist);
-
-
-			light_contribution += (lights[l].intensity * cosine)/ dis_square ;
-
-
+			light_contribution += (lights[l].intensity * cosine)/ dis_square;
 		}
 
 	}
 
 
-	ac[id] = ac[id] * light_contribution;
+	ac[ray.id] = ac[ray.id] * light_contribution;
 }
 
 
