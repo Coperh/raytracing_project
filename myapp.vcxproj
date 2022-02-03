@@ -179,7 +179,9 @@
     <None Include="cl\kernels.cl" />
     <None Include="README.md" />
     <None Include="template\LICENSE" />
-    <None Include="wavefront.cl" />
+    <None Include="wavefront.cl">
+      <FileType>Document</FileType>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="old_stuff.txt" />

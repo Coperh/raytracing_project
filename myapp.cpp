@@ -21,9 +21,12 @@ const int AA_Width = SCRWIDTH * aa_res;
 const  int TOTAL_RAYS = AA_Height * AA_Width;
 //Ray AntiAliasRays[AA_Height][AA_Width];
 
+
+
+int degree = 32;
 mat4 directions[] = {
-	mat4::RotateY(-PI / 4), // left
-	mat4::RotateY(PI / 4), // right
+	mat4::RotateY(-PI / degree), // left
+	mat4::RotateY(PI / degree), // right
 	};
 
 
@@ -64,7 +67,7 @@ const int num_lights = sizeof(lights) / sizeof(lights[0]);
 
 
 
-float3 pos[] = { float3(0, 0, 20), float3(10, 0, 0),float3(-10, 0, 0), float3(0, 0, 0)};
+float3 pos[] = { float3(0, 0, 20), float3(20, 0, 0),float3(-20, 0, 0), float3(0, 0, 0)};
 float3 normals[] = { float3(0, 0, -1), float3(1, 0, 0), float3(-1, 0, 0), float3(0, 1, 0)};
 float3 cols[] = { float3(1, 0, 1), float3(1, 1, 0), float3(0, 1, 1), float3(1, 0, 0)};
 int num_prims = sizeof(pos) / sizeof(pos[0]);
@@ -122,8 +125,6 @@ void MyApp::KeyDown(int key) {
 	// left (left arrow + A)
 	if (key == 263 || key == 65);
 	
-
-
 	// right (right arrow + D)
 	if (key == 262 || key == 68);
 
@@ -204,7 +205,6 @@ void MyApp::Init()
 	prims_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, prims.size() * sizeof(Primitive));
 	queue.enqueueWriteBuffer(prims_buffer, CL_TRUE, 0, prims.size() * sizeof(Primitive), prims.data());
 
-
 	mats_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, mats.size() * sizeof(Material));
 	queue.enqueueWriteBuffer(mats_buffer, CL_TRUE, 0, mats.size() * sizeof(Material), mats.data());
 
@@ -232,16 +232,13 @@ void MyApp::Init()
 
 	generate_primary_rays.setArg(0, rays);
 	generate_primary_rays.setArg(1, TOTAL_RAYS);
-	generate_primary_rays.setArg(2, E);
-	generate_primary_rays.setArg(3, d);
-	generate_primary_rays.setArg(4, V);
 
-
-	//mat4 rotation_matrix = mat4::RotateX(PI);
-
-	queue.enqueueNDRangeKernel(generate_primary_rays, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
-
+	
 	// set unchanging args
+	generate_primary_rays.setArg(0, rays);
+	generate_primary_rays.setArg(1, TOTAL_RAYS);
+	generate_primary_rays.setArg(2, d);
+
 	cast_rays.setArg(3, prims_buffer);
 	cast_rays.setArg(4, static_cast<int>(prims.size()));
 	
@@ -269,13 +266,42 @@ void MyApp::Init()
 // -----------------------------------------------------------
 void MyApp::Tick( float deltaTime )
 {
-	
+	cl_int result;
+
 	// clear the screen to black
 	//screen->Clear(0);
 
 
 
-	cl_int result;
+	// find roation matrix
+
+
+	float3 v = float3(0, 0, 1) * V;
+	float sin = length(v);
+	float cos = dot(float3(0, 0, 1), V);
+
+
+	//array < array<float, 3>, 3> rot_mat{0};
+
+
+	mat4 rotate_mat4 = mat4::LookAt(float3(0,0,0), V);
+
+
+	cl::Buffer  rotation_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, 16 * sizeof(float));
+	result = queue.enqueueWriteBuffer(rotation_buffer, CL_TRUE, 0, 16 * sizeof(float), rotate_mat4.cell);
+	if (result != CL_SUCCESS) std::cerr << result << std::endl;
+
+
+	generate_primary_rays.setArg(3, E);
+	generate_primary_rays.setArg(4, rotation_buffer);
+
+	queue.enqueueNDRangeKernel(generate_primary_rays, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
+
+
+	
+
+
+	
 
 
 
@@ -325,16 +351,12 @@ void MyApp::Tick( float deltaTime )
 		shade_intersections.setArg(2, intersection_buffer);
 
 
-
 		directIllum = cl::Buffer(context, CL_MEM_READ_WRITE, TOTAL_RAYS * sizeof(Ray));
 		shade_intersections.setArg(3, directIllum);
 	
 		result = queue.enqueueNDRangeKernel(shade_intersections, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
 		if (result != CL_SUCCESS) std::cerr << result << std::endl;
-
-
 		
-
 		direct_illumination.setArg(5, directIllum);
 		result = queue.enqueueNDRangeKernel(direct_illumination, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
 		if (result != CL_SUCCESS) std::cerr << result << std::endl;
@@ -396,6 +418,9 @@ void MyApp::Tick( float deltaTime )
 
 	frame_count++;
 
+
+
+	V = directions[0].TransformVector(V);
 
 }
 

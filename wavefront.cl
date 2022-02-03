@@ -3,7 +3,7 @@
 #include "cl_structs.h"
 
 
-#define EYE (float3)(0, 10, 0)
+#define EYE (float3)(0, 0, 0)
 #define VEC (float3)(0,	0, 1)
 #define DIST 2.0f
 
@@ -13,24 +13,28 @@
 
 
 
-__kernel void generate_primary_rays(__global struct Ray* rays,  const int n, float3 E, float d, float3 V)
+__kernel void generate_primary_rays(
+	__global struct Ray* rays, 
+	const int n,
+	const float d,
+	const float3 w_E,
+	__global float * rot4)
 {
 
 
 	int idx = get_global_id(0);
 	int idy = get_global_id(1);
-
-
 	int id = idx + idy * get_global_size(0);
-
 
 
 	if (id >= n) return;
 
 
+	float3 E = EYE, V = VEC;
+
+
+
 	float3 center = E + d * V;
-
-
 	float3 P0 = center + (float3)(-1, 1, 0);
 	float3 P1 = center + (float3)(1, 1, 0);
 	float3 P2 = center + (float3)(-1, -1, 0);
@@ -39,12 +43,30 @@ __kernel void generate_primary_rays(__global struct Ray* rays,  const int n, flo
 	float u = (float)idx / get_global_size(0);
 	float v = (float)idy / get_global_size(1);
 	float3 O = P0 + u * (P1 - P0) + v * (P2 - P0);
-	float3 D = O - E;
+	float3 D = normalize(O - E);
+
+
+
+
+
+	//if (id == 0) printf("1: %f %f %f\n", D.x, D.y, D.z);
+
+	// rotate vector
+	D = (float3)(
+		rot4[0] * D.x + rot4[1] * D.y + rot4[2] * D.z,
+		rot4[4] * D.x + rot4[5] * D.y + rot4[6] * D.z,
+		rot4[8] * D.x + rot4[9] * D.y + rot4[10] * D.z
+		);
+
+
+
+	//if (id == 0) printf("2: %f %f %f\n", D.x, D.y, D.z);
 
 
 	// save ray stuff
-	rays[id].D = normalize(D);
-	rays[id].O = O;
+	rays[id].D = D;
+
+	rays[id].O = O + w_E;
 
 	rays[id].id = id;
 
@@ -103,7 +125,7 @@ __kernel void cast_rays(
 
 	intersctions[id].t = best_t;
 	
-	intersctions[id].id = id;
+	intersctions[id].id = ray.id;
 
 
 	struct Primitive prim = prims[best_prim];
@@ -139,7 +161,7 @@ __kernel void shade_intersections(
 
 
 	struct Material mat = mats[intersection.mat];
-	ac[id] = mat.colour;
+	ac[intersection.id] = mat.colour;
 
 	
 	if (mat.type == 0){
