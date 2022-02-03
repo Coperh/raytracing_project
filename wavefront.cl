@@ -8,6 +8,11 @@
 #define DIST 2.0f
 
 
+
+#define EPISLON 1e-4f
+
+
+
 __kernel void generate_primary_rays(__global struct Ray* rays,  const int n, float3 E, float d, float3 V)
 {
 
@@ -50,12 +55,19 @@ __kernel void generate_primary_rays(__global struct Ray* rays,  const int n, flo
 
 
 
-__kernel void cast_rays(__global struct Ray* rays, __global struct Primitive* prims, const int num_prims, __global float3* a)
+__kernel void cast_rays(
+	__global struct Ray* rays, 
+	__global struct Intersection* intersctions,
+	volatile __global int* incs,
+	__global struct Primitive* prims, 
+	const int num_prims )
 {
 	
 
 	int id = get_global_id(0) + get_global_id(1) * get_global_size(0);
 	
+
+	if(id == 1) *incs = 0;
 
 
 	float best_t = FLT_MAX;
@@ -64,6 +76,7 @@ __kernel void cast_rays(__global struct Ray* rays, __global struct Primitive* pr
 	struct Ray ray = rays[id];
 	
 
+	// combine into function
 	for (int i = 0; i < num_prims; i++){
 
 		struct Primitive prim = prims[i];
@@ -79,31 +92,135 @@ __kernel void cast_rays(__global struct Ray* rays, __global struct Primitive* pr
 			if  (t > 0 && t < best_t) {
 				best_t = t;
 				best_prim = i;
-
 			}
-	
 		}
 	}
 
-	switch(best_prim){
 
-		case(0):
-			a[id] = (float3)(0,1,1);
-			break;
-		case(1):
-			a[id] = (float3)(1,0,1);
-			break;
-		case(2):
-			a[id] = (float3)(1,1,0);
-			break;
-		case(3):
-			a[id] = (float3)(1,0,0);
-			break;
-		default:
-			a[id] = (float3)(0,0,0);
-			break;
-		}
+	//Intersection
+
+	intersctions[id].t = best_t;
+	
+	intersctions[id].id = id;
+
+
+	struct Primitive prim = prims[best_prim];
+
+	intersctions[id].mat = prim.mat;
+
+	if(dot(prim.N, ray.D) > 0)
+		intersctions[id].N = -prim.N;
+	else
+		intersctions[id].N = prim.N;
+
+	intersctions[id].D = ray.D;
+	intersctions[id].I =  ray.D * best_t;
+	
+
+	if(best_prim >= 0) atomic_inc(incs);
 }
+
+
+__kernel void shade_intersections(
+	__global float3* ac, __global struct Material* mats , 
+	__global struct Intersection* intersctions,
+	 __global struct Ray* directIllum )
+{
+	
+
+	int id = get_global_id(0) + get_global_id(1) * get_global_size(0);
+
+
+	struct Intersection intersection = intersctions[id];
+
+
+	struct Material mat = mats[intersection.mat];
+	ac[id] = mat.colour;
+
+	
+	if (mat.type == 0){
+
+		directIllum[id].id = intersection.id;
+		directIllum[id].O = intersection.I;
+		directIllum[id].D = intersection.N;
+	} 
+}
+
+
+
+__kernel void direct_illumination(
+	__global float3* ac, 
+	__global struct PointLight* lights, 
+	const int num_lights , 
+	__global struct Primitive* prims, 
+	const int num_prims,
+	__global struct Ray* rays )
+{
+
+	int id = get_global_id(0) + get_global_id(1) * get_global_size(0);
+
+
+	struct Ray ray  = rays[id];
+
+
+	float3 orig_o = ray.O;
+	// ray direction used for normal
+	float3 normal = ray.D;
+
+	float light_contribution = 0;
+
+
+	for (int l = 0; l < num_lights; l++)
+	{
+
+		ray.D = normalize(lights[l].pos - orig_o);
+
+		ray.O = orig_o + (ray.D * EPISLON);
+
+
+
+		float dist = distance(ray.O, lights[l].pos);
+
+		const float  min_t = dist;
+
+		bool blocked = false;
+
+		for (int i = 0; i < num_prims; i++){
+
+			struct Primitive prim = prims[i];
+			float denom = dot(prim.N, ray.D);
+
+			if (denom != 0)
+			{
+				float num = -(dot(ray.O, prim.N) + prim.o);
+				float t = num / denom;
+				if  (t > 0 && t < min_t) {
+					blocked = true;
+					break;
+				}
+			}	
+		}
+
+		if (!blocked){
+
+
+			float cosine = max(0.0f, dot(ray.D, normal));
+
+			float dis_square = (dist * dist);
+
+
+			light_contribution += (lights[l].intensity * cosine)/ dis_square ;
+
+
+		}
+
+	}
+
+
+	ac[id] = ac[id] * light_contribution;
+}
+
+
 
 
 
@@ -143,103 +260,6 @@ __kernel void anti_alias(__global float3* input, __global float3* output, int aa
 
 
 }
-
-
-
-
-
-
-
-
-
-// old stuff
-
-__kernel void device_function(write_only image2d_t a)
-{
-	
-	int idx = get_global_id(0);
-	int idy = get_global_id(1);
-
-	int2 dim = get_image_dim(a);
-
-	//printf("%d %d\n", dim);
-
-	int id = idx + dim.x * idy;
-
-	if (id >= (dim.x * dim.y)) return;
-
-
-	// generate ray
-	float3 E = EYE;
-	float3 center = E + (DIST * VEC);
-
-	float3 P0 = center + (float3)(-1, 1, 0);
-	float3 P1 = center + (float3)(1, 1, 0);
-	float3 P2 = center + (float3)(-1, -1, 0);
-
-	float u = (float)idx / dim.x;
-	float v = (float)idy / dim.y;
-
-
-	//printf("%f %f\n", u, v);
-
-
-	float3 O = P0 + u * (P1 - P0) + v * (P2 - P0);
-	float3 D = O - E;
-
-	D = normalize(D);
-
-
-	//printf("X:%f Y:%f Z:%f\n",D.x,D.y,D.z);
-
-	//printf("O- X: % f Y : % f Z : % f\n",O.x,O.y,O.z);
-
-	// sphere
-	float t = 0;
-	float r2 = 25; // radius of 5
-	float3 pos = (float3)(0, 10, 20);
-	float4 col = (float4)(1, 0, 0, 1);
-
-	int2 pix = (int2)(idx, idy);
-
-	// intersect circle
-
-	float3 C = pos - O;
-
-	//printf("X:%f Y:%f Z:%f\n", C.x, C.y, C.z);
-
-	t = dot(C, D);
-
-
-
-	float3 Q = C - t * D;
-	float p2 = dot(Q, Q);
-
-
-
-	//printf("%f %f\n", r2, p2);
-
-	if (p2 > r2) {
-		write_imagef(a, pix, 0.f);
-		return; 
-	}
-	
-
-
-	t -= sqrt(r2 - p2);
-
-	//printf("test\n");
-
-	// display pixel
-
-	if (t <= 0) {
-		write_imagef(a, pix, 0.f);
-		return;
-	}
-		
-	write_imagef(a, pix, col);
-}
-
 
 
 

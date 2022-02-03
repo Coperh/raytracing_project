@@ -1,4 +1,4 @@
-
+// structures compatible with both C++ and OpenCL
 
 
 typedef struct Ray {
@@ -11,11 +11,24 @@ typedef struct Ray {
 };
 
 
-typedef struct PointLight {
-	float3 pos;
-	float itensity;
+
+
+typedef struct Intersection {
+
+	float3 I; // 12 byte
+	float3 N; // 12 byte
+	float3 D; // 12 byte
+	float t; // 4 bytes
+	int mat; //4 bytes
+	int id; // 4 btyes
+
+
 };
 
+typedef struct PointLight {
+	float3 pos;
+	float intensity;
+};
 
 typedef struct Primitive {
 	float3 pos;
@@ -26,7 +39,7 @@ typedef struct Primitive {
 
 typedef struct Material {
 	float3 colour;
-	int mat;
+	int type;
 	float intensity;
 	
 };

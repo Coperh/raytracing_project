@@ -49,23 +49,24 @@ cl::Buffer mats_buffer;
 
 // opencl kernels
 cl::Kernel test_k; 
+cl::Kernel generate_primary_rays;
 cl::Kernel cast_rays;
 cl::Kernel anti_alias;
-
-
+cl::Kernel shade_intersections;
+cl::Kernel direct_illumination;
 
 PointLight lights[] = {
-	{float3(75,75,0), 10.0f},
-	{float3(-75,75,0), 10.0f}
+	{float3(5,20,0), 100.0f},
+	{float3(-5,20,0), 100.0f}
 };
 const int num_lights = sizeof(lights) / sizeof(lights[0]);
 
 
 
 
-float3 pos[] = { float3(0, 0, 50), float3(20, 0, 0),float3(-20, 0, 0), float3(0, 0, 0) };
+float3 pos[] = { float3(0, 0, 20), float3(10, 0, 0),float3(-10, 0, 0), float3(0, 0, 0) };
 float3 normals[] = { float3(0, 0, -1), float3(1, 0, 0), float3(-1, 0, 0), float3(0, 1, 0) };
-float3 cols[] = { float3(1, 0, 1), float3(1, 1, 0), float3(0, 1, 1), float3(0, 1, 0) };
+float3 cols[] = { float3(1, 0, 1), float3(1, 1, 0), float3(0, 1, 1), float3(1, 0, 0) };
 int num_prims = sizeof(pos) / sizeof(pos[0]);
 
 vector<Primitive>  prims(4);
@@ -177,20 +178,17 @@ void MyApp::Init()
 	program = cl::Program(context, source);
 
 	// build program
-	if (program.build({ device }) != CL_SUCCESS) {
-		std::cout << "Error building: " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
+	program.build({ device });
+	std::cout << "Error building: " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
 
-		cin.get();
-
-		//exit(1);
-	}
+	
 
 
-	// make kernels
-	cl::Kernel generate_primary_rays = cl::Kernel(program, "generate_primary_rays");
-
+	// Create OpenCL kernels
+	generate_primary_rays = cl::Kernel(program, "generate_primary_rays");
 	cast_rays = cl::Kernel(program, "cast_rays");
-
+	shade_intersections = cl::Kernel(program, "shade_intersections");
+	direct_illumination = cl::Kernel(program, "direct_illumination");
 
 
 	// create queue
@@ -211,6 +209,8 @@ void MyApp::Init()
 	queue.enqueueWriteBuffer(mats_buffer, CL_TRUE, 0, mats.size() * sizeof(Material), mats.data());
 
 
+
+
 	// setupt Anti Alias
 	if (aa_res > 1) {
 		image_buffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, SCRWIDTH * SCRHEIGHT * sizeof(float3));
@@ -221,15 +221,13 @@ void MyApp::Init()
 		anti_alias.setArg(2, aa_res);		
 	}
 
+
+	/*
 	cl::ImageFormat format;
 	format.image_channel_order = CL_RGBA;
 	format.image_channel_data_type = CL_FLOAT;
-
 	image = cl::Image2D(context, CL_MEM_WRITE_ONLY, format, AA_Width, AA_Height);
-	
-
-	//queue.enqueueWriteBuffer(A, CL_TRUE, 0, sizeof(int) * TOTAL_RAYS, a.data());
-	//queue.enqueueWriteBuffer(A, 0, a.size() * sizeof(double), a.data());
+	*/
 
 
 	generate_primary_rays.setArg(0, rays);
@@ -239,26 +237,23 @@ void MyApp::Init()
 	generate_primary_rays.setArg(4, V);
 
 
-
-
 	//mat4 rotation_matrix = mat4::RotateX(PI);
-
 
 	queue.enqueueNDRangeKernel(generate_primary_rays, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
 
-
-	//queue.enqueueReadBuffer(rays, CL_TRUE, 0, TOTAL_RAYS * sizeof(Ray), a.data());
-	//queue.enqueueWriteBuffer(rays, CL_TRUE, 0, sizeof(int) * TOTAL_RAYS, a.data());
-
-	
 	// set unchanging args
+	cast_rays.setArg(3, prims_buffer);
+	cast_rays.setArg(4, static_cast<int>(prims.size()));
 	
-	
+	shade_intersections.setArg(1, mats_buffer);
+	shade_intersections.setArg(0, accumulated_colour);
 
-	cast_rays.setArg(1, prims_buffer);
-	cast_rays.setArg(2, static_cast<int>(prims.size()));
-	cast_rays.setArg(3, accumulated_colour);
-	
+
+	direct_illumination.setArg(0, accumulated_colour);
+	direct_illumination.setArg(1, light_buffer);
+	direct_illumination.setArg(2, num_lights);
+	direct_illumination.setArg(3, prims_buffer);
+	direct_illumination.setArg(4, static_cast<int>(prims.size()));
 
 
 	printf("Initialization complete\n");
@@ -289,17 +284,68 @@ void MyApp::Tick( float deltaTime )
 
 	auto start = high_resolution_clock::now();
 
+
+	vector<Intersection> intersections(TOTAL_RAYS);
+
+	cl::Buffer intersection_buffer(context, CL_MEM_READ_ONLY, TOTAL_RAYS * sizeof(Intersection));
+
+	cl::Buffer intsection_count(context, CL_MEM_READ_WRITE, sizeof(int));
+
+
 	cast_rays.setArg(0, rays);
-	
+	cast_rays.setArg(1, intersection_buffer);
+	cast_rays.setArg(2, intsection_count);
+
+
+
 	//printf("%f\n", prims[0].o);
 
 	
 
-	
 	result = queue.enqueueNDRangeKernel(cast_rays, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
 
-
 	if ( result != CL_SUCCESS) std::cerr << result << std::endl;
+
+
+	int * incs = new int(0);
+
+
+	result = queue.enqueueReadBuffer(intsection_count, CL_TRUE, 0, sizeof(int), incs);
+	if ( result != CL_SUCCESS) std::cerr << result << std::endl;
+	
+	printf("%d intersections\n", *incs);
+
+
+	cl::Buffer directIllum;
+
+
+	if (*incs == TOTAL_RAYS) {
+	
+	
+		shade_intersections.setArg(2, intersection_buffer);
+
+
+
+		directIllum = cl::Buffer(context, CL_MEM_READ_WRITE, TOTAL_RAYS * sizeof(Ray));
+		shade_intersections.setArg(3, directIllum);
+	
+		result = queue.enqueueNDRangeKernel(shade_intersections, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
+		if (result != CL_SUCCESS) std::cerr << result << std::endl;
+
+
+		
+
+		direct_illumination.setArg(5, directIllum);
+		result = queue.enqueueNDRangeKernel(direct_illumination, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
+		if (result != CL_SUCCESS) std::cerr << result << std::endl;
+
+
+
+
+	}
+
+
+
 
 
 
@@ -309,7 +355,7 @@ void MyApp::Tick( float deltaTime )
 	
 	std::vector<float3> pixels(SCRHEIGHT * SCRWIDTH);
 	
-	//cout << aa_res << endl;
+	// get colours, anti-alias if necessary
 	if (aa_res > 1) {
 		result = queue.enqueueNDRangeKernel(anti_alias, cl::NullRange, cl::NDRange(SCRWIDTH, SCRHEIGHT), cl::NDRange(16, 16));
 		//std::cerr << result << std::endl;
@@ -320,8 +366,7 @@ void MyApp::Tick( float deltaTime )
 	}
 
 
-
-	
+	// display pixels
 	for (int y=0; y< SCRHEIGHT; y++) for (int x = 0; x< SCRWIDTH; x++){
 		int id = x + y * SCRWIDTH;
 		
@@ -339,16 +384,6 @@ void MyApp::Tick( float deltaTime )
 	std::chrono::duration<double, std::milli> duration = stop - start;
 	double seconds = duration.count() / 1000;
 
-	/*
-	char lumtext[32];
-	sprintf(lumtext, "Energy: %.2f", energy);
-	screen->Print(
-		lumtext,
-		SCRWIDTH / 32,
-		SCRHEIGHT / 16,
-		0xFFFFFFFF);
-	*/
-
 	char FPS[20];
 	std::sprintf(FPS, "FPS: %.2f", 1/seconds);
 	screen->Print(
@@ -357,7 +392,6 @@ void MyApp::Tick( float deltaTime )
 		(SCRHEIGHT / 16),
 		0xFFFFFFFF);
 	
-
 	//printf("Frame %d rendered in %f seconds\n", frame_count, seconds);
 
 	frame_count++;
