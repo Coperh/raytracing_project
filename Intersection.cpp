@@ -67,16 +67,10 @@ int NearestIntersection(Primitive* objects[], int n, Ray* r, float3* intersectio
 
 
 
-		//printf("best t %f\n", best_t);
-
-		//r->t = best_t;
-
 		float3 I = r->O + r->D * best_t;
-
 		intersection->x = I.x;
 		intersection->y = I.y;
 		intersection->z = I.z;
-
 		float3 N = objects[nearest]->GetNormal(I, r->D);
 
 		normal->x = N.x;

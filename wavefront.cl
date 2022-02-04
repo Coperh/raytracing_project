@@ -78,11 +78,13 @@ __kernel void generate_primary_rays(
 
 
 __kernel void cast_rays(
+	__global struct Primitive* prims,
+	const int num_prims,
 	__global struct Ray* rays, 
+	const int num_rays,
 	__global struct Intersection* intersctions,
-	volatile __global int* incs,
-	__global struct Primitive* prims, 
-	const int num_prims )
+	volatile __global int* incs
+	)
 {
 	
 
@@ -121,40 +123,56 @@ __kernel void cast_rays(
 	}
 
 
-	//Intersection
 
-	intersctions[id].t = best_t;
+
+	if (best_prim >= 0) {
+		int index = atomic_inc(incs);
+
+		//Intersection
+		intersctions[index].t = best_t;
+
+		intersctions[index].id = ray.id;
+
+
+		struct Primitive prim = prims[best_prim];
+
+		intersctions[index].mat = prim.mat;
+
+		if (dot(prim.N, ray.D) > 0)
+			intersctions[index].N = -prim.N;
+		else
+			intersctions[index].N = prim.N;
+
+		intersctions[index].D = ray.D;
+		intersctions[index].I = ray.O + (ray.D * best_t);
+
+	}
 	
-	intersctions[id].id = ray.id;
-
-
-	struct Primitive prim = prims[best_prim];
-
-	intersctions[id].mat = prim.mat;
-
-	if(dot(prim.N, ray.D) > 0)
-		intersctions[id].N = -prim.N;
-	else
-		intersctions[id].N = prim.N;
-
-	intersctions[id].D = ray.D;
-	intersctions[id].I =  ray.O + (ray.D * best_t);
-	
-
-	if(best_prim >= 0) atomic_inc(incs);
 
 	//if (best_prim == 1) printf("test %f %d\n", best_t,id);
 }
 
 
 __kernel void shade_intersections(
-	__global float3* ac, __global struct Material* mats , 
+	__global float3* ac, 
+	__global struct Material* mats,
 	__global struct Intersection* intersctions,
-	 __global struct Ray* directIllum )
+	__global struct Ray* shade_rays,
+	__global struct Ray* ext_rays,
+	volatile __global int* types
+)
 {
+
 	
 
 	int id = get_global_id(0) + get_global_id(1) * get_global_size(0);
+
+	if (id == 0) {
+		types[0] = 0;
+		types[1] = 0;
+		types[2] = 0;
+		types[3] = 0;
+	}
 
 
 	struct Intersection intersection = intersctions[id];
@@ -164,27 +182,66 @@ __kernel void shade_intersections(
 	ac[intersection.id] = mat.colour;
 
 	
-	if (mat.type == 0){
+	
+	
+	int index = atomic_inc(&types[mat.type]);
 
+
+	//if (index > 400000) printf("%d\n", types[mat.type]);
+
+
+	float3 D = shade_rays[id].D;
+	float3 N = intersection.N;
+
+	int t;
+
+
+
+	//struct Ray* output;
+
+
+	if (mat.type == 0) {
+		shade_rays[index].D = N;
+		shade_rays[index].id = intersection.id;
+		shade_rays[index].O = intersection.I;
+	}
+	else{
+		ext_rays[index].D = D - 2 * (dot(D, N) * N);;
+		ext_rays[index].id = intersection.id;
+		ext_rays[index].O = intersection.I;
 		
-		directIllum[id].id = intersection.id;
-		directIllum[id].O = intersection.I;
-		directIllum[id].D = intersection.N;
-	} 
+	}
+
+	/*
+	output[index].id = intersection.id;
+	output[index].O = intersection.I;
+	output[index].D = D;
+	*/
+
+
+
 }
 
 
 
 __kernel void direct_illumination(
-	__global float3* ac, 
-	__global struct PointLight* lights, 
-	const int num_lights , 
-	__global struct Primitive* prims, 
+	__global float3* ac,
+	__global struct PointLight* lights,
+	const int num_lights,
+	__global struct Primitive* prims,
 	const int num_prims,
-	__global struct Ray* rays )
+	__global struct Ray* rays,
+	const int num_rays
+)
 {
 
+
+
 	int id = get_global_id(0) + get_global_id(1) * get_global_size(0);
+
+
+	if (id > num_rays - 1) return;
+
 
 
 	struct Ray ray  = rays[id];
@@ -229,13 +286,10 @@ __kernel void direct_illumination(
 		}
 
 	}
-
-
 	ac[ray.id] = ac[ray.id] * light_contribution;
+
+	//printf("boop\n");
 }
-
-
-
 
 
 
@@ -246,6 +300,7 @@ __kernel void anti_alias(__global float3* input, __global float3* output, int aa
 	int local_x = get_global_id(0) * aa_res;
 	int local_y = get_global_id(1) * aa_res;
 	
+
 
 	float3 colour = (float3)(0,0,0);
 

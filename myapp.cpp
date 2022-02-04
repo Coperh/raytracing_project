@@ -70,6 +70,9 @@ const int num_lights = sizeof(lights) / sizeof(lights[0]);
 float3 pos[] = { float3(0, 0, 20), float3(20, 0, 0),float3(-20, 0, 0), float3(0, 0, 0)};
 float3 normals[] = { float3(0, 0, -1), float3(1, 0, 0), float3(-1, 0, 0), float3(0, 1, 0)};
 float3 cols[] = { float3(1, 0, 1), float3(1, 1, 0), float3(0, 1, 1), float3(1, 0, 0)};
+int mat_type[] = { 0,0,0,1 };
+
+
 int num_prims = sizeof(pos) / sizeof(pos[0]);
 
 vector<Primitive>  prims(num_prims);
@@ -86,7 +89,7 @@ void CreatePrims() {
 		float t = -(dot(normals[i], pos[i]));
 
 		prims.at(i) = { pos[i], normals[i], t, i };
-		mats.at(i) = {cols[i], 0, 1};
+		mats.at(i) = {cols[i], mat_type[i], 1};
 		
 			
 		//printf("%f\n", prims[i].pos.z);
@@ -141,11 +144,10 @@ void MyApp::Init()
 
 	CreatePrims();
 
-
+	//OpenCL setup
+	//============================================================
 	vector<cl::Platform> platforms;
-
 	cl::Platform::get(&platforms);
-
 
 	// get default platform
 	if (platforms.size() == 0) {
@@ -182,9 +184,9 @@ void MyApp::Init()
 	program.build({ device });
 	std::cout << "Error building: " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
 
+	//============================================================
+	// End OpenCL setup
 	
-
-
 	// Create OpenCL kernels
 	generate_primary_rays = cl::Kernel(program, "generate_primary_rays");
 	cast_rays = cl::Kernel(program, "cast_rays");
@@ -239,8 +241,8 @@ void MyApp::Init()
 	generate_primary_rays.setArg(1, TOTAL_RAYS);
 	generate_primary_rays.setArg(2, d);
 
-	cast_rays.setArg(3, prims_buffer);
-	cast_rays.setArg(4, static_cast<int>(prims.size()));
+	cast_rays.setArg(0, prims_buffer);
+	cast_rays.setArg(1, static_cast<int>(prims.size()));
 	
 	shade_intersections.setArg(1, mats_buffer);
 	shade_intersections.setArg(0, accumulated_colour);
@@ -266,49 +268,29 @@ void MyApp::Init()
 // -----------------------------------------------------------
 void MyApp::Tick( float deltaTime )
 {
+
+	//frames_rendered++;
+
 	cl_int result;
 
 	// clear the screen to black
-	//screen->Clear(0);
+	screen->Clear(0);
+	auto start = high_resolution_clock::now();
 
 
-
-	// find roation matrix
-
-
-	float3 v = float3(0, 0, 1) * V;
-	float sin = length(v);
-	float cos = dot(float3(0, 0, 1), V);
-
-
-	//array < array<float, 3>, 3> rot_mat{0};
-
-
+	// create rotation matrx
 	mat4 rotate_mat4 = mat4::LookAt(float3(0,0,0), V);
-
 
 	cl::Buffer  rotation_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, 16 * sizeof(float));
 	result = queue.enqueueWriteBuffer(rotation_buffer, CL_TRUE, 0, 16 * sizeof(float), rotate_mat4.cell);
 	if (result != CL_SUCCESS) std::cerr << result << std::endl;
 
 
+
 	generate_primary_rays.setArg(3, E);
 	generate_primary_rays.setArg(4, rotation_buffer);
-
 	queue.enqueueNDRangeKernel(generate_primary_rays, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
-
-
 	
-
-
-	
-
-
-
-	frames_rendered++;
-
-
-	auto start = high_resolution_clock::now();
 
 
 	vector<Intersection> intersections(TOTAL_RAYS);
@@ -318,9 +300,10 @@ void MyApp::Tick( float deltaTime )
 	cl::Buffer intsection_count(context, CL_MEM_READ_WRITE, sizeof(int));
 
 
-	cast_rays.setArg(0, rays);
-	cast_rays.setArg(1, intersection_buffer);
-	cast_rays.setArg(2, intsection_count);
+	cast_rays.setArg(2, rays);
+	cast_rays.setArg(3, TOTAL_RAYS);
+	cast_rays.setArg(4, intersection_buffer);
+	cast_rays.setArg(5, intsection_count);
 
 
 
@@ -334,49 +317,63 @@ void MyApp::Tick( float deltaTime )
 
 
 	int * incs = new int(0);
-
-
 	result = queue.enqueueReadBuffer(intsection_count, CL_TRUE, 0, sizeof(int), incs);
 	if ( result != CL_SUCCESS) std::cerr << result << std::endl;
 	
+
+
 	printf("%d intersections\n", *incs);
 
+	// number of materials intersected.
+	cl::Buffer mat_insc;
 
-	cl::Buffer directIllum;
+	cl::Buffer shadow_buffer;
+	cl::Buffer extension_buffer;
 
+
+
+	const int num_incs(*incs);
 
 	if (*incs == TOTAL_RAYS) {
 	
 	
 		shade_intersections.setArg(2, intersection_buffer);
 
+		shadow_buffer = cl::Buffer(context, CL_MEM_READ_WRITE, TOTAL_RAYS * sizeof(Ray));
+		shade_intersections.setArg(3, shadow_buffer);
 
-		directIllum = cl::Buffer(context, CL_MEM_READ_WRITE, TOTAL_RAYS * sizeof(Ray));
-		shade_intersections.setArg(3, directIllum);
-	
+		extension_buffer = cl::Buffer(context, CL_MEM_READ_WRITE, TOTAL_RAYS * sizeof(Ray));
+		shade_intersections.setArg(4, extension_buffer);
+		// material intersecions
+		mat_insc = cl::Buffer(context, CL_MEM_READ_WRITE, 4 * sizeof(int));
+		shade_intersections.setArg(5, mat_insc);
+
+
+
 		result = queue.enqueueNDRangeKernel(shade_intersections, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
 		if (result != CL_SUCCESS) std::cerr << result << std::endl;
 		
-		direct_illumination.setArg(5, directIllum);
-		result = queue.enqueueNDRangeKernel(direct_illumination, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
+
+
+		vector<int> mat_types(4);
+		result = queue.enqueueReadBuffer(mat_insc, CL_TRUE, 0, 4 * sizeof(int), mat_types.data());
 		if (result != CL_SUCCESS) std::cerr << result << std::endl;
 
+		printf("Shad:%d Ext:%d Oth:%d Oth:%d\n", mat_types[0], mat_types[1],  mat_types[2], mat_types[3]);
 
 
+
+		direct_illumination.setArg(5, shadow_buffer);
+		direct_illumination.setArg(6, mat_types[0]);
+
+		result = queue.enqueueNDRangeKernel(direct_illumination, cl::NullRange, cl::NDRange((mat_types[0]/32 +1) * 32), cl::NDRange(32));
+		if (result != CL_SUCCESS) std::cerr << result << std::endl;
 
 	}
 
 
 
-
-
-
-
-	//queue.enqueueReadImage(image, CL_TRUE, {0,0,0}, );
-
-	
 	std::vector<float3> pixels(SCRHEIGHT * SCRWIDTH);
-	
 	// get colours, anti-alias if necessary
 	if (aa_res > 1) {
 		result = queue.enqueueNDRangeKernel(anti_alias, cl::NullRange, cl::NDRange(SCRWIDTH, SCRHEIGHT), cl::NDRange(16, 16));
@@ -391,15 +388,12 @@ void MyApp::Tick( float deltaTime )
 	// display pixels
 	for (int y=0; y< SCRHEIGHT; y++) for (int x = 0; x< SCRWIDTH; x++){
 		int id = x + y * SCRWIDTH;
-		
 		const float r = pixels[id].x, g = pixels[id].y, b = pixels[id].z;
-
 		const uint ir = min((uint)(r * 255), 255u);
 		const uint ig = min((uint)(g * 255), 255u);
 		const uint ib = min((uint)(b * 255), 255u);
 		screen->Plot(x, y, (ir << 16) + (ig << 8) + ib);
 	}
-	
 
 
 	auto stop = high_resolution_clock::now();

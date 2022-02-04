@@ -53,9 +53,6 @@
     <ClInclude Include="Sphere.h">
       <Filter>OldStuffs</Filter>
     </ClInclude>
-    <ClInclude Include="WhittedTrace.h">
-      <Filter>OldStuffs</Filter>
-    </ClInclude>
     <ClInclude Include="cl_structs.h" />
   </ItemGroup>
   <ItemGroup>
@@ -69,6 +66,9 @@
       <Filter>template\cl</Filter>
     </None>
     <None Include="wavefront.cl" />
+    <None Include="WhittedTrace.h">
+      <Filter>OldStuffs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="template">
