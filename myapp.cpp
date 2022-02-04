@@ -66,11 +66,14 @@ const int num_lights = sizeof(lights) / sizeof(lights[0]);
 
 
 
-
-float3 pos[] = { float3(0, 0, 20), float3(20, 0, 0),float3(-20, 0, 0), float3(0, 0, 0)};
-float3 normals[] = { float3(0, 0, -1), float3(1, 0, 0), float3(-1, 0, 0), float3(0, 1, 0)};
-float3 cols[] = { float3(1, 0, 1), float3(1, 1, 0), float3(0, 1, 1), float3(0, 1, 0)};
-int mat_type[] = { 0,0,0,1 };
+//               plane             plane              plane               reflectiv plane  sphere         glass plane
+float3 pos[] = { float3(0, 0, 20), float3(20, 0, 0), float3(-20, 0, 0), float3(0, 0, 0), float3(0,10, 15), float3(0, 0, -40) };
+float3 normals[] = { float3(0, 0, -1), float3(1, 0, 0), float3(-1, 0, 0), float3(0, 1, 0), float3(0,0,0), float3(0.5, 0, 0.5) };
+float3 cols[] = { float3(1, 0, 1), float3(1, 1, 0), float3(0, 1, 1), float3(0, 1, 0), float3(0.5, 0.5, 0.5), float3(0.5, 0.5, 0.8) };
+float intensities[] = {1,1,1 ,1, 1, 1};
+float other[] = { 0,0,0,0, 4 , 0};
+int types[] = { 0,0,0 ,0, 1 , 0};
+int mat_type[] = { 0,0,0,1, 0 , 1};
 
 
 int num_prims = sizeof(pos) / sizeof(pos[0]);
@@ -88,8 +91,26 @@ void CreatePrims() {
 	{
 		float t = -(dot(normals[i], pos[i]));
 
-		prims.at(i) = { pos[i], normals[i], t, i };
-		mats.at(i) = {cols[i], mat_type[i], 1};
+		prims.at(i) = { pos[i], normals[i], other[i], types[i], i};
+
+		switch (types[i]) {
+		
+		case 0:
+			prims.at(i).o = -(dot(normals[i], pos[i]));
+			break;
+		case 1:
+			
+			int radius = prims.at(i).o;
+			prims.at(i).o = radius * radius;
+
+			break;
+		
+		}
+
+
+		mats.at(i) = {cols[i], mat_type[i], intensities[i]};
+
+
 		
 			
 		//printf("%f\n", prims[i].pos.z);
@@ -143,6 +164,9 @@ void MyApp::Init()
 
 
 	CreatePrims();
+	printf("%d \n", num_prims);
+
+
 
 	//OpenCL setup
 	//============================================================
@@ -154,8 +178,10 @@ void MyApp::Init()
 		std::cout << " No platforms found.\n";
 		exit(1);
 	}
+
 	cl::Platform default_platform = platforms[0];
 	std::cout << "Using platform: " << default_platform.getInfo<CL_PLATFORM_NAME>() << "\n";
+
 
 	// get device
 	vector<cl::Device> devices;
@@ -205,8 +231,14 @@ void MyApp::Init()
 	light_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, num_lights * sizeof(PointLight));
 	queue.enqueueWriteBuffer(light_buffer, CL_TRUE, 0, num_lights * sizeof(PointLight), lights);
 
+
+
+
 	prims_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, prims.size() * sizeof(Primitive));
 	queue.enqueueWriteBuffer(prims_buffer, CL_TRUE, 0, prims.size() * sizeof(Primitive), prims.data());
+
+
+
 
 	mats_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, mats.size() * sizeof(Material));
 	queue.enqueueWriteBuffer(mats_buffer, CL_TRUE, 0, mats.size() * sizeof(Material), mats.data());
@@ -344,6 +376,8 @@ void MyApp::Tick( float deltaTime )
 
 		printf("Hit %d, mis  %d\n", incs[0], incs[1]);
 		
+
+
 		cl::Buffer mat_insc; // number of materials intersected
 		cl::Buffer shadow_buffer;
 		cl::Buffer extension_buffer;
@@ -369,6 +403,7 @@ void MyApp::Tick( float deltaTime )
 			shade_intersections.setArg(6, mat_insc);
 
 
+			//printf("Throw shade\n");
 			num_jobs = incs[0];
 			if (num_jobs % 32 != 0) num_jobs = (num_jobs / 32 + 1) * 32;
 
@@ -381,7 +416,7 @@ void MyApp::Tick( float deltaTime )
 			if (result != CL_SUCCESS) std::cerr << result << std::endl;
 
 			
-			printf("%d Diff, %d reflect\n", mat_types[0], mat_types[0]);
+			printf("%d Diff, %d reflect\n", mat_types[0], mat_types[1]);
 
 
 			if (mat_types[0] > 0) {
@@ -397,10 +432,12 @@ void MyApp::Tick( float deltaTime )
 			}
 
 
+
+
 			to_be_casted = mat_types[1];
 
 			cast_rays.setArg(2, ray_buffer);
-			
+			printf("New rays %d\n", to_be_casted);
 			
 		}
 		else {

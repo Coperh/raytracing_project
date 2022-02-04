@@ -30,7 +30,9 @@ typedef struct Primitive {
 	float3 pos;
 	float3 N;
 	float o;
+	int type;
 	int mat;
+	
 };
 
 typedef struct Material {
