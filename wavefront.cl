@@ -49,11 +49,6 @@ __kernel void generate_primary_rays(
 	float3 D = normalize(O - EYE);
 
 
-
-
-
-	//if (id == 0) printf("1: %f %f %f\n", D.x, D.y, D.z);
-
 	// rotate vector
 	D = (float3)(
 		rot4[0] * D.x + rot4[1] * D.y + rot4[2] * D.z,
@@ -61,16 +56,10 @@ __kernel void generate_primary_rays(
 		rot4[8] * D.x + rot4[9] * D.y + rot4[10] * D.z
 		);
 
-	//if (id == 0) printf("2: %f %f %f\n", D.x, D.y, D.z);
-
 	// save ray stuff
 	rays[id].D = D;
-
 	rays[id].O = O + w_E;
-
 	rays[id].id = id;
-
-
 	//printf("Ray: %d\n", rays[id].id);
 }
 
@@ -79,18 +68,25 @@ __kernel void generate_primary_rays(
 __kernel void cast_rays(
 	__global struct Primitive* prims,
 	const int num_prims,
-	__global struct Ray* rays, 
+	__global struct Ray* rays,
 	const int num_rays,
 	__global struct Intersection* intersctions,
+	__global float3 *misses,
 	volatile __global int* incs
 	)
 {
-	
 
 	int id = get_global_id(0) + get_global_id(1) * get_global_size(0);
 	
+	if (id >= num_rays) return;
 
-	if(id == 1) *incs = 0;
+
+
+	if (id == 0) {
+		incs[0] = 0;
+		incs[1] = 0;
+		//printf("ray %d\n", rays[id].id);
+	}
 
 
 	float best_t = FLT_MAX;
@@ -113,7 +109,9 @@ __kernel void cast_rays(
 	}
 
 	if (best_prim >= 0) {
-		int index = atomic_inc(incs);
+
+		if (num_rays < 200000) printf("%d prim\n", best_prim);
+		int index = atomic_inc(&incs[0]);
 
 		//Intersection
 		intersctions[index].t = best_t;
@@ -130,9 +128,16 @@ __kernel void cast_rays(
 
 
 		get_normal(&prim, &intersctions[index]);
+
 		
 	}
-	//if (best_prim == 1) printf("test %f %d\n", best_t,id);
+	else {
+		int index = atomic_inc(&incs[1]);
+		misses[index] = ray.D;
+	
+	}
+
+
 }
 
 
@@ -141,6 +146,7 @@ __kernel void shade_intersections(
 	__global float4* ac, 
 	__global struct Material* mats,
 	__global struct Intersection* intersctions,
+	const int  num_ics,
 	__global struct Ray* shade_rays,
 	__global struct Ray* ext_rays,
 	volatile __global int* types
@@ -150,6 +156,8 @@ __kernel void shade_intersections(
 	
 
 	int id = get_global_id(0) + get_global_id(1) * get_global_size(0);
+
+	if (id >= num_ics) return;
 
 	if (id == 0) {
 		types[0] = 0;
@@ -172,10 +180,8 @@ __kernel void shade_intersections(
 	//if (id == 0) printf("Col: %f\n", new_colour.y);
 
 
-	ac[intersection.id] = ac[intersection.id] * new_colour;
+	
 
-	
-	
 	
 	int index = atomic_inc(&types[mat.type]);
 
@@ -183,25 +189,33 @@ __kernel void shade_intersections(
 	//if (index > 400000) printf("%d\n", types[mat.type]);
 
 
-	float3 D = shade_rays[id].D;
+	float3 D = intersection.D;
 	float3 N = intersection.N;
 
 	int t;
 
-
+	//printf("%f %f %f\n", D.x, D.y, D.z);
 
 	//struct Ray* output;
 
 
+
 	if (mat.type == 0) {
+		ac[intersection.id] = ac[intersection.id] * new_colour;
 		shade_rays[index].D = N;
 		shade_rays[index].id = intersection.id;
 		shade_rays[index].O = intersection.I;
 	}
 	else{
+
+		
+
 		ext_rays[index].D = D - 2 * (dot(D, N) * N);;
+
+		//printf("D1:%f %f %f, N:%f %f %f, D2:%f,%f,%f\n", D.x, D.y, D.z, N.x, N.y, N.z, ext_rays[index].D.x, ext_rays[index].D.y, ext_rays[index].D.z);
+
 		ext_rays[index].id = intersection.id;
-		ext_rays[index].O = intersection.I;
+		ext_rays[index].O = intersection.I + ext_rays[index].D * EPISLON;
 		
 	}
 
@@ -236,6 +250,8 @@ __kernel void direct_illumination(
 	if (id > num_rays - 1) return;
 
 
+	//if (id == 0) printf("Direct Ill\n");
+
 
 	struct Ray ray  = rays[id];
 
@@ -245,7 +261,6 @@ __kernel void direct_illumination(
 	float3 normal = ray.D;
 
 	float light_contribution = 0;
-
 
 	for (int l = 0; l < num_lights; l++)
 	{
@@ -260,13 +275,10 @@ __kernel void direct_illumination(
 			struct Primitive prim = prims[i];
 			float denom = dot(prim.N, ray.D);
 
-
-
 			float t = intersect_plane(&prim, &ray);
 
-
 			if  (t > 0 && t < dist) {
-				//if (id == 0 && i == 3) printf("%f, %d", t, i );
+				
 				blocked = true;
 				break;
 			}	
@@ -276,7 +288,6 @@ __kernel void direct_illumination(
 			float dis_square = (dist * dist);
 			light_contribution += (lights[l].intensity * cosine)/ dis_square;
 		}
-
 	}
 
 	ac[ray.id].w += light_contribution;

@@ -9,11 +9,7 @@ typedef struct Ray {
 	float3 D;
 	float t;
 	int id;
-
 };
-
-
-
 
 typedef struct Intersection {
 
@@ -23,8 +19,6 @@ typedef struct Intersection {
 	float t; // 4 bytes
 	int mat; //4 bytes
 	int id; // 4 btyes
-
-
 };
 
 typedef struct PointLight {

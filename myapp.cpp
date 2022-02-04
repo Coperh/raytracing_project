@@ -69,7 +69,7 @@ const int num_lights = sizeof(lights) / sizeof(lights[0]);
 
 float3 pos[] = { float3(0, 0, 20), float3(20, 0, 0),float3(-20, 0, 0), float3(0, 0, 0)};
 float3 normals[] = { float3(0, 0, -1), float3(1, 0, 0), float3(-1, 0, 0), float3(0, 1, 0)};
-float3 cols[] = { float3(1, 0, 1), float3(1, 1, 0), float3(0, 1, 1), float3(1, 0, 0)};
+float3 cols[] = { float3(1, 0, 1), float3(1, 1, 0), float3(0, 1, 1), float3(0, 1, 0)};
 int mat_type[] = { 0,0,0,1 };
 
 
@@ -223,9 +223,6 @@ void MyApp::Init()
 	*/
 
 
-	generate_primary_rays.setArg(0, rays);
-	generate_primary_rays.setArg(1, TOTAL_RAYS);
-
 	
 	// set unchanging args
 	generate_primary_rays.setArg(0, rays);
@@ -292,83 +289,139 @@ void MyApp::Tick( float deltaTime )
 
 	vector<Intersection> intersections(TOTAL_RAYS);
 
-	cl::Buffer intersection_buffer(context, CL_MEM_READ_ONLY, TOTAL_RAYS * sizeof(Intersection));
+	
 
-	cl::Buffer intsection_count(context, CL_MEM_READ_WRITE, sizeof(int));
 
+
+
+	int to_be_casted = TOTAL_RAYS;
+
+
+	cl::Buffer ray_buffer = rays;
 
 	cast_rays.setArg(2, rays);
-	cast_rays.setArg(3, TOTAL_RAYS);
-	cast_rays.setArg(4, intersection_buffer);
-	cast_rays.setArg(5, intsection_count);
 
 
+	int iter = 0;
+
+	printf("Total Rays %d\n", TOTAL_RAYS);
 
 
-	//printf("%f\n", prims[0].o);
+	while (to_be_casted > 0) 
+	{
+		//printf("Cast %d with %d rays\n", iter, to_be_casted);
 
+
+		cl::Buffer intersection_buffer(context, CL_MEM_READ_ONLY, to_be_casted * sizeof(Intersection));
+		cl::Buffer miss_buffer(context, CL_MEM_READ_ONLY, to_be_casted * sizeof(float3));
+
+		cl::Buffer intsection_count(context, CL_MEM_READ_WRITE, 2 * sizeof(int));
 	
 
-	result = queue.enqueueNDRangeKernel(cast_rays, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
-
-	if ( result != CL_SUCCESS) std::cerr << result << std::endl;
-
-
-	int * incs = new int(0);
-	result = queue.enqueueReadBuffer(intsection_count, CL_TRUE, 0, sizeof(int), incs);
-	if ( result != CL_SUCCESS) std::cerr << result << std::endl;
+		
+		
+		cast_rays.setArg(3, to_be_casted);
+		cast_rays.setArg(4, intersection_buffer);
+		cast_rays.setArg(5, miss_buffer);
+		cast_rays.setArg(6, intsection_count);
 	
+		
+		int num_jobs = to_be_casted;
+		if (num_jobs % 32 != 0) num_jobs = (num_jobs / 32 + 1) * 32;
 
 
-	printf("%d intersections\n", *incs);
-
-	// number of materials intersected.
-	cl::Buffer mat_insc;
-
-	cl::Buffer shadow_buffer;
-	cl::Buffer extension_buffer;
-
-
-
-	const int num_incs(*incs);
-
-	if (*incs == TOTAL_RAYS) {
-	
-	
-		shade_intersections.setArg(2, intersection_buffer);
-
-		shadow_buffer = cl::Buffer(context, CL_MEM_READ_WRITE, TOTAL_RAYS * sizeof(Ray));
-		shade_intersections.setArg(3, shadow_buffer);
-
-		extension_buffer = cl::Buffer(context, CL_MEM_READ_WRITE, TOTAL_RAYS * sizeof(Ray));
-		shade_intersections.setArg(4, extension_buffer);
-		// material intersecions
-		mat_insc = cl::Buffer(context, CL_MEM_READ_WRITE, 4 * sizeof(int));
-		shade_intersections.setArg(5, mat_insc);
+		result = queue.enqueueNDRangeKernel(cast_rays, cl::NullRange, cl::NDRange(num_jobs), cl::NDRange(32));
+		if (result != CL_SUCCESS) std::cerr << result << std::endl;
 
 
 
-		result = queue.enqueueNDRangeKernel(shade_intersections, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
+		vector<int> incs(2);
+
+		result = queue.enqueueReadBuffer(intsection_count, CL_TRUE, 0, 2 * sizeof(int), incs.data());
 		if (result != CL_SUCCESS) std::cerr << result << std::endl;
 		
+		//printf("Itr %d: %d rays %d jobs\n",iter, to_be_casted, num_jobs);
+
+		printf("Hit %d, mis  %d\n", incs[0], incs[1]);
+		
+		cl::Buffer mat_insc; // number of materials intersected
+		cl::Buffer shadow_buffer;
+		cl::Buffer extension_buffer;
+	
 
 
-		vector<int> mat_types(4);
-		result = queue.enqueueReadBuffer(mat_insc, CL_TRUE, 0, 4 * sizeof(int), mat_types.data());
-		if (result != CL_SUCCESS) std::cerr << result << std::endl;
-
-		//printf("Shad:%d Ext:%d Oth:%d Oth:%d\n", mat_types[0], mat_types[1],  mat_types[2], mat_types[3]);
 
 
 
-		direct_illumination.setArg(5, shadow_buffer);
-		direct_illumination.setArg(6, mat_types[0]);
+		if (incs[0] >  0) {
 
-		result = queue.enqueueNDRangeKernel(direct_illumination, cl::NullRange, cl::NDRange((mat_types[0]/32 +1) * 32), cl::NDRange(32));
-		if (result != CL_SUCCESS) std::cerr << result << std::endl;
+			shade_intersections.setArg(2, intersection_buffer);
+			shade_intersections.setArg(3, incs[0]);
 
+			shadow_buffer = cl::Buffer(context, CL_MEM_READ_WRITE, incs[0] * sizeof(Ray));
+			shade_intersections.setArg(4, shadow_buffer);
+
+			ray_buffer = cl::Buffer(context, CL_MEM_READ_WRITE, incs[0] * sizeof(Ray));
+			shade_intersections.setArg(5, ray_buffer);
+
+			// material intersecions
+			mat_insc = cl::Buffer(context, CL_MEM_READ_WRITE, 4 * sizeof(int));
+			shade_intersections.setArg(6, mat_insc);
+
+
+			num_jobs = incs[0];
+			if (num_jobs % 32 != 0) num_jobs = (num_jobs / 32 + 1) * 32;
+
+			result = queue.enqueueNDRangeKernel(shade_intersections, cl::NullRange, cl::NDRange(num_jobs), cl::NDRange(32));
+			if (result != CL_SUCCESS) std::cerr << result << std::endl;
+
+
+			vector<int> mat_types(4);
+			result = queue.enqueueReadBuffer(mat_insc, CL_TRUE, 0, 4 * sizeof(int), mat_types.data());
+			if (result != CL_SUCCESS) std::cerr << result << std::endl;
+
+			
+			printf("%d Diff, %d reflect\n", mat_types[0], mat_types[0]);
+
+
+			if (mat_types[0] > 0) {
+
+				direct_illumination.setArg(5, shadow_buffer);
+				direct_illumination.setArg(6, mat_types[0]);
+
+				num_jobs = mat_types[0];
+				if (num_jobs % 32 != 0) num_jobs = (num_jobs / 32 + 1) * 32;
+
+				result = queue.enqueueNDRangeKernel(direct_illumination, cl::NullRange, cl::NDRange(num_jobs), cl::NDRange(32));
+				if (result != CL_SUCCESS) std::cerr << result << std::endl;
+			}
+
+
+			to_be_casted = mat_types[1];
+
+			cast_rays.setArg(2, ray_buffer);
+			
+			
+		}
+		else {
+			to_be_casted = -1;
+		}
+
+
+		if (incs[1] > 0) {
+		
+			// do something with misses
+		
+		}
+
+
+
+		//to_be_casted = -1;
+
+		iter++;
 	}
 
+	printf("-------------------------\n");
 
 
 
