@@ -1,7 +1,7 @@
 
 
 #include "cl_structs.h"
-
+#include "cl_helpers.h"
 
 #define EYE (float3)(0, 0, 0)
 #define VEC (float3)(0,	0, 1)
@@ -36,11 +36,8 @@ __kernel void generate_primary_rays(
 	if (id >= n) return;
 
 
-	float3 E = EYE, V = VEC;
 
-
-
-	float3 center = E + d * V;
+	float3 center = EYE + d * VEC;
 	float3 P0 = center + (float3)(-1, 1, 0);
 	float3 P1 = center + (float3)(1, 1, 0);
 	float3 P2 = center + (float3)(-1, -1, 0);
@@ -49,7 +46,7 @@ __kernel void generate_primary_rays(
 	float u = (float)idx / get_global_size(0);
 	float v = (float)idy / get_global_size(1);
 	float3 O = P0 + u * (P1 - P0) + v * (P2 - P0);
-	float3 D = normalize(O - E);
+	float3 D = normalize(O - EYE);
 
 
 
@@ -105,23 +102,14 @@ __kernel void cast_rays(
 	// combine into function
 	for (int i = 0; i < num_prims; i++){
 
-		struct Primitive prim = prims[i];
-		float denom = dot(prim.N, ray.D);
 
-		if (denom != 0)
-		{
-			float num = -(dot(ray.O, prim.N) + prim.o);
-			float t = num / denom;
+		float t = intersect_plane(&prims[i], &rays[id]);
 
-			//printf("test %d\n", t)
-
-			
-
-			if  (t > 0 && t < best_t) {
-				best_t = t;
-				best_prim = i;
-			}
+		if  (t > 0 && t < best_t) {
+			best_t = t;
+			best_prim = i;
 		}
+		
 	}
 
 	if (best_prim >= 0) {
@@ -137,13 +125,12 @@ __kernel void cast_rays(
 
 		intersctions[index].mat = prim.mat;
 
-		if (dot(prim.N, ray.D) > 0)
-			intersctions[index].N = -prim.N;
-		else
-			intersctions[index].N = prim.N;
-
 		intersctions[index].D = ray.D;
 		intersctions[index].I = ray.O + (ray.D * best_t);
+
+
+		get_normal(&prim, &intersctions[index]);
+		
 	}
 	//if (best_prim == 1) printf("test %f %d\n", best_t,id);
 }
@@ -273,16 +260,15 @@ __kernel void direct_illumination(
 			struct Primitive prim = prims[i];
 			float denom = dot(prim.N, ray.D);
 
-			if (denom != 0)
-			{
-				float num = -(dot(ray.O, prim.N) + prim.o);
-				float t = num / denom;
 
-				if  (t > 0 && t < dist) {
-					//if (id == 0 && i == 3) printf("%f, %d", t, i );
-					blocked = true;
-					break;
-				}
+
+			float t = intersect_plane(&prim, &ray);
+
+
+			if  (t > 0 && t < dist) {
+				//if (id == 0 && i == 3) printf("%f, %d", t, i );
+				blocked = true;
+				break;
 			}	
 		}
 		if (!blocked){
@@ -301,52 +287,26 @@ __kernel void direct_illumination(
 __kernel void render_pixels(__global float4* input, __global float3* output, int aa_res){
 	
 
-
 	int id = get_global_id(0) + get_global_id(1) * get_global_size(0);
-	// get the local x and y in aa_res step sizes
-	int local_x = get_global_id(0) * aa_res;
-	int local_y = get_global_id(1) * aa_res;
 	
-
-
 	float4 colour = (float4)(0,0,0,0);
 
-	
-
-
 	if (aa_res > 1) {
+		// get the local x and y in aa_res step sizes
+		int local_x = get_global_id(0) * aa_res;
+		int local_y = get_global_id(1) * aa_res;
 		for (int i = 0; i < aa_res; i++) {
 			for (int j = 0; j < aa_res; j++) {
-
-
 				// get the sub pixels, screen width needs to be multiplied by aa res
 				long local_id = (local_x + j) + ((local_y + i) * get_global_size(0) * aa_res);
-
-				//if (id == 0) printf("test %d\n", local_id);
-
-
 				colour += input[local_id];
-
 			}
 		}
-
-
 		colour = colour / (aa_res * aa_res);
-
 	}
 	else colour = input[id];
-	
-	
-	//printf("%f\n", colour.w);
-	
-
-
 
 	output[id] =  (float3)(colour.x, colour.y,colour.z) * colour.w;
-
-
-
-
 }
 
 

@@ -5,15 +5,6 @@
       <Filter>template</Filter>
     </ClCompile>
     <ClCompile Include="myapp.cpp" />
-    <ClCompile Include="Intersection.cpp">
-      <Filter>OldStuffs</Filter>
-    </ClCompile>
-    <ClCompile Include="Pathtrace.cpp">
-      <Filter>OldStuffs</Filter>
-    </ClCompile>
-    <ClCompile Include="Sphere.cpp">
-      <Filter>OldStuffs</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="template\common.h">
@@ -26,34 +17,8 @@
     <ClInclude Include="cl\tools.cl">
       <Filter>template\cl</Filter>
     </ClInclude>
-    <ClInclude Include="AreaLight.h">
-      <Filter>OldStuffs</Filter>
-    </ClInclude>
-    <ClInclude Include="Intersection.h">
-      <Filter>OldStuffs</Filter>
-    </ClInclude>
-    <ClInclude Include="Light.h">
-      <Filter>OldStuffs</Filter>
-    </ClInclude>
-    <ClInclude Include="Material.h">
-      <Filter>OldStuffs</Filter>
-    </ClInclude>
-    <ClInclude Include="Pathtrace.h">
-      <Filter>OldStuffs</Filter>
-    </ClInclude>
-    <ClInclude Include="Plane.h">
-      <Filter>OldStuffs</Filter>
-    </ClInclude>
-    <ClInclude Include="Primitive.h">
-      <Filter>OldStuffs</Filter>
-    </ClInclude>
-    <ClInclude Include="Ray.h">
-      <Filter>OldStuffs</Filter>
-    </ClInclude>
-    <ClInclude Include="Sphere.h">
-      <Filter>OldStuffs</Filter>
-    </ClInclude>
     <ClInclude Include="cl_structs.h" />
+    <ClInclude Include="cl_helpers.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="template\LICENSE">
@@ -67,6 +32,42 @@
     </None>
     <None Include="wavefront.cl" />
     <None Include="WhittedTrace.h">
+      <Filter>OldStuffs</Filter>
+    </None>
+    <None Include="Intersection.cpp">
+      <Filter>OldStuffs</Filter>
+    </None>
+    <None Include="Intersection.h">
+      <Filter>OldStuffs</Filter>
+    </None>
+    <None Include="Light.h">
+      <Filter>OldStuffs</Filter>
+    </None>
+    <None Include="Material.h">
+      <Filter>OldStuffs</Filter>
+    </None>
+    <None Include="Pathtrace.cpp">
+      <Filter>OldStuffs</Filter>
+    </None>
+    <None Include="Pathtrace.h">
+      <Filter>OldStuffs</Filter>
+    </None>
+    <None Include="Plane.h">
+      <Filter>OldStuffs</Filter>
+    </None>
+    <None Include="Primitive.h">
+      <Filter>OldStuffs</Filter>
+    </None>
+    <None Include="Ray.h">
+      <Filter>OldStuffs</Filter>
+    </None>
+    <None Include="Sphere.cpp">
+      <Filter>OldStuffs</Filter>
+    </None>
+    <None Include="Sphere.h">
+      <Filter>OldStuffs</Filter>
+    </None>
+    <None Include="AreaLight.h">
       <Filter>OldStuffs</Filter>
     </None>
   </ItemGroup>

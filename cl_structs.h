@@ -1,3 +1,5 @@
+#pragma once
+
 // structures compatible with both C++ and OpenCL
 
 

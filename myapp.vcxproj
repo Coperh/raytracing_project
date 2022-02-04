@@ -142,6 +142,7 @@
     <None Include="AreaLight.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </None>
+    <ClInclude Include="cl_helpers.h" />
     <ClInclude Include="cl\tools.cl" />
     <ClInclude Include="cl_structs.h" />
     <None Include="Intersection.h">
