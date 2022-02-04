@@ -17,6 +17,7 @@ __kernel void generate_primary_rays(
 	__global struct Ray* rays, 
 	const int n,
 	const float d,
+	__global float4* ac,
 	const float3 w_E,
 	__global float * rot4)
 {
@@ -25,6 +26,11 @@ __kernel void generate_primary_rays(
 	int idx = get_global_id(0);
 	int idy = get_global_id(1);
 	int id = idx + idy * get_global_size(0);
+
+
+
+	ac[id] = (float4)(1, 1, 1, 0);
+
 
 
 	if (id >= n) return;
@@ -58,10 +64,7 @@ __kernel void generate_primary_rays(
 		rot4[8] * D.x + rot4[9] * D.y + rot4[10] * D.z
 		);
 
-
-
 	//if (id == 0) printf("2: %f %f %f\n", D.x, D.y, D.z);
-
 
 	// save ray stuff
 	rays[id].D = D;
@@ -72,7 +75,6 @@ __kernel void generate_primary_rays(
 
 
 	//printf("Ray: %d\n", rays[id].id);
-
 }
 
 
@@ -122,9 +124,6 @@ __kernel void cast_rays(
 		}
 	}
 
-
-
-
 	if (best_prim >= 0) {
 		int index = atomic_inc(incs);
 
@@ -145,16 +144,14 @@ __kernel void cast_rays(
 
 		intersctions[index].D = ray.D;
 		intersctions[index].I = ray.O + (ray.D * best_t);
-
 	}
-	
-
 	//if (best_prim == 1) printf("test %f %d\n", best_t,id);
 }
 
 
+
 __kernel void shade_intersections(
-	__global float3* ac, 
+	__global float4* ac, 
 	__global struct Material* mats,
 	__global struct Intersection* intersctions,
 	__global struct Ray* shade_rays,
@@ -179,7 +176,16 @@ __kernel void shade_intersections(
 
 
 	struct Material mat = mats[intersection.mat];
-	ac[intersection.id] = mat.colour;
+
+
+
+	float4 new_colour = (float4)(mat.colour, 1);
+
+
+	//if (id == 0) printf("Col: %f\n", new_colour.y);
+
+
+	ac[intersection.id] = ac[intersection.id] * new_colour;
 
 	
 	
@@ -225,7 +231,7 @@ __kernel void shade_intersections(
 
 
 __kernel void direct_illumination(
-	__global float3* ac,
+	__global float4* ac,
 	__global struct PointLight* lights,
 	const int num_lights,
 	__global struct Primitive* prims,
@@ -286,44 +292,57 @@ __kernel void direct_illumination(
 		}
 
 	}
-	ac[ray.id] = ac[ray.id] * light_contribution;
 
-	//printf("boop\n");
+	ac[ray.id].w += light_contribution;
 }
 
 
 
-__kernel void anti_alias(__global float3* input, __global float3* output, int aa_res){
+__kernel void render_pixels(__global float4* input, __global float3* output, int aa_res){
 	
 
+
+	int id = get_global_id(0) + get_global_id(1) * get_global_size(0);
 	// get the local x and y in aa_res step sizes
 	int local_x = get_global_id(0) * aa_res;
 	int local_y = get_global_id(1) * aa_res;
 	
 
 
-	float3 colour = (float3)(0,0,0);
+	float4 colour = (float4)(0,0,0,0);
 
 	
-	for( int i = 0; i < aa_res; i++){
-		for( int j = 0; j < aa_res; j++){
 
 
-			
-			// get the sub pixels, screen width needs to be multiplied by aa res
-			long local_id = (local_x + j) + ((local_y + i) * get_global_size(0) * aa_res);
-			
-			//if (id == 0) printf("test %d\n", local_id);
+	if (aa_res > 1) {
+		for (int i = 0; i < aa_res; i++) {
+			for (int j = 0; j < aa_res; j++) {
 
-			colour += input[local_id];
-		
+
+				// get the sub pixels, screen width needs to be multiplied by aa res
+				long local_id = (local_x + j) + ((local_y + i) * get_global_size(0) * aa_res);
+
+				//if (id == 0) printf("test %d\n", local_id);
+
+
+				colour += input[local_id];
+
+			}
 		}
+
+
+		colour = colour / (aa_res * aa_res);
+
 	}
+	else colour = input[id];
+	
+	
+	//printf("%f\n", colour.w);
+	
 
 
-	long id = get_global_id(0) + get_global_id(1) * get_global_size(0);
 
-	output[id] = colour / 4;
+	output[id] =  (float3)(colour.x, colour.y,colour.z) * colour.w;
 
 
 

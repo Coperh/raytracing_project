@@ -54,7 +54,7 @@ cl::Buffer mats_buffer;
 cl::Kernel test_k; 
 cl::Kernel generate_primary_rays;
 cl::Kernel cast_rays;
-cl::Kernel anti_alias;
+cl::Kernel render_pixels;
 cl::Kernel shade_intersections;
 cl::Kernel direct_illumination;
 
@@ -192,15 +192,16 @@ void MyApp::Init()
 	cast_rays = cl::Kernel(program, "cast_rays");
 	shade_intersections = cl::Kernel(program, "shade_intersections");
 	direct_illumination = cl::Kernel(program, "direct_illumination");
-
+	render_pixels = cl::Kernel(program, "render_pixels");
 
 	// create queue
 	queue = cl::CommandQueue(context);
 
 	// Create buffers
 	rays = cl::Buffer(context, CL_MEM_READ_WRITE, TOTAL_RAYS * sizeof(Ray));
-	accumulated_colour = cl::Buffer(context, CL_MEM_READ_WRITE, TOTAL_RAYS * sizeof(float3));
-	
+
+	accumulated_colour = cl::Buffer(context, CL_MEM_READ_WRITE, TOTAL_RAYS * sizeof(float4));
+
 	light_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, num_lights * sizeof(PointLight));
 	queue.enqueueWriteBuffer(light_buffer, CL_TRUE, 0, num_lights * sizeof(PointLight), lights);
 
@@ -210,18 +211,8 @@ void MyApp::Init()
 	mats_buffer = cl::Buffer(context, CL_MEM_READ_ONLY, mats.size() * sizeof(Material));
 	queue.enqueueWriteBuffer(mats_buffer, CL_TRUE, 0, mats.size() * sizeof(Material), mats.data());
 
+	image_buffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, SCRWIDTH * SCRHEIGHT * sizeof(float3));
 
-
-
-	// setupt Anti Alias
-	if (aa_res > 1) {
-		image_buffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, SCRWIDTH * SCRHEIGHT * sizeof(float3));
-		anti_alias = cl::Kernel(program, "anti_alias");
-
-		anti_alias.setArg(0, accumulated_colour);
-		anti_alias.setArg(1, image_buffer);
-		anti_alias.setArg(2, aa_res);		
-	}
 
 
 	/*
@@ -240,6 +231,7 @@ void MyApp::Init()
 	generate_primary_rays.setArg(0, rays);
 	generate_primary_rays.setArg(1, TOTAL_RAYS);
 	generate_primary_rays.setArg(2, d);
+	generate_primary_rays.setArg(3,accumulated_colour);
 
 	cast_rays.setArg(0, prims_buffer);
 	cast_rays.setArg(1, static_cast<int>(prims.size()));
@@ -253,6 +245,12 @@ void MyApp::Init()
 	direct_illumination.setArg(2, num_lights);
 	direct_illumination.setArg(3, prims_buffer);
 	direct_illumination.setArg(4, static_cast<int>(prims.size()));
+
+
+
+	render_pixels.setArg(0, accumulated_colour);
+	render_pixels.setArg(1, image_buffer);
+	render_pixels.setArg(2, aa_res);
 
 
 	printf("Initialization complete\n");
@@ -287,10 +285,9 @@ void MyApp::Tick( float deltaTime )
 
 
 
-	generate_primary_rays.setArg(3, E);
-	generate_primary_rays.setArg(4, rotation_buffer);
+	generate_primary_rays.setArg(4, E);
+	generate_primary_rays.setArg(5, rotation_buffer);
 	queue.enqueueNDRangeKernel(generate_primary_rays, cl::NullRange, cl::NDRange(AA_Width, AA_Height), cl::NDRange(32, 16));
-	
 
 
 	vector<Intersection> intersections(TOTAL_RAYS);
@@ -304,6 +301,7 @@ void MyApp::Tick( float deltaTime )
 	cast_rays.setArg(3, TOTAL_RAYS);
 	cast_rays.setArg(4, intersection_buffer);
 	cast_rays.setArg(5, intsection_count);
+
 
 
 
@@ -359,7 +357,7 @@ void MyApp::Tick( float deltaTime )
 		result = queue.enqueueReadBuffer(mat_insc, CL_TRUE, 0, 4 * sizeof(int), mat_types.data());
 		if (result != CL_SUCCESS) std::cerr << result << std::endl;
 
-		printf("Shad:%d Ext:%d Oth:%d Oth:%d\n", mat_types[0], mat_types[1],  mat_types[2], mat_types[3]);
+		//printf("Shad:%d Ext:%d Oth:%d Oth:%d\n", mat_types[0], mat_types[1],  mat_types[2], mat_types[3]);
 
 
 
@@ -373,16 +371,15 @@ void MyApp::Tick( float deltaTime )
 
 
 
+
+
+	// get pixel values
 	std::vector<float3> pixels(SCRHEIGHT * SCRWIDTH);
-	// get colours, anti-alias if necessary
-	if (aa_res > 1) {
-		result = queue.enqueueNDRangeKernel(anti_alias, cl::NullRange, cl::NDRange(SCRWIDTH, SCRHEIGHT), cl::NDRange(16, 16));
-		//std::cerr << result << std::endl;
-		queue.enqueueReadBuffer(image_buffer, CL_TRUE, 0, SCRHEIGHT * SCRWIDTH * sizeof(float3), pixels.data());
-	}	
-	else {
-		queue.enqueueReadBuffer(accumulated_colour, CL_TRUE, 0, SCRHEIGHT* SCRWIDTH * sizeof(float3), pixels.data());
-	}
+	
+	result = queue.enqueueNDRangeKernel(render_pixels, cl::NullRange, cl::NDRange(SCRWIDTH, SCRHEIGHT), cl::NDRange(16, 16));
+	if (result != CL_SUCCESS) std::cerr << result << std::endl;
+
+	queue.enqueueReadBuffer(image_buffer, CL_TRUE, 0, SCRHEIGHT * SCRWIDTH * sizeof(float3), pixels.data());
 
 
 	// display pixels
